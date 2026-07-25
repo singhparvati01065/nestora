@@ -41,6 +41,15 @@ export class AuthService {
     return this.jwt.sign(user);
   }
 
+  /// Issues the token response and records the login (for the admin panel's
+  /// login analytics). Fire-and-forget so it never blocks the sign-in.
+  private issueSession(authUser: AuthUser) {
+    void this.prisma.loginEvent
+      .create({ data: { userId: authUser.sub, role: authUser.role } })
+      .catch(() => null);
+    return { accessToken: this.tokenFor(authUser), user: authUser };
+  }
+
   private toAuthUser(u: {
     id: string;
     phone: string;
@@ -92,7 +101,7 @@ export class AuthService {
     });
 
     const authUser = this.toAuthUser(user);
-    return { accessToken: this.tokenFor(authUser), user: authUser };
+    return this.issueSession(authUser);
   }
 
   async login(dto: LoginDto) {
@@ -107,7 +116,7 @@ export class AuthService {
     if (!ok) throw new UnauthorizedException('Invalid credentials');
 
     const authUser = this.toAuthUser(user);
-    return { accessToken: this.tokenFor(authUser), user: authUser };
+    return this.issueSession(authUser);
   }
 
   /**
@@ -124,6 +133,9 @@ export class AuthService {
     const existing = await this.prisma.user.findUnique({ where: { phone } });
 
     if (existing) {
+      if (existing.banned) {
+        throw new ForbiddenException('This account has been blocked.');
+      }
       // A removed (archived) account can't sign back in until re-added.
       if (existing.archivedAt) {
         throw new ForbiddenException(
@@ -142,7 +154,7 @@ export class AuthService {
             data: { firebaseUid: identity.uid },
           });
       const authUser = this.toAuthUser(user);
-      return { accessToken: this.tokenFor(authUser), user: authUser };
+      return this.issueSession(authUser);
     }
 
     // First time this number is seen. Only a society admin may create their own
@@ -163,7 +175,7 @@ export class AuthService {
       },
     });
     const authUser = this.toAuthUser(created);
-    return { accessToken: this.tokenFor(authUser), user: authUser };
+    return this.issueSession(authUser);
   }
 
   /**
@@ -191,6 +203,9 @@ export class AuthService {
 
     const phone = toLocalPhone(dto.phone);
     const existing = await this.prisma.user.findUnique({ where: { phone } });
+    if (existing?.banned) {
+      throw new ForbiddenException('This account has been blocked.');
+    }
     if (existing?.archivedAt) {
       throw new ForbiddenException(
         'This account has been removed. Ask your society admin.',
@@ -215,7 +230,7 @@ export class AuthService {
       }));
 
     const authUser = this.toAuthUser(user);
-    return { accessToken: this.tokenFor(authUser), user: authUser };
+    return this.issueSession(authUser);
   }
 
   async me(userId: string) {
@@ -235,6 +250,6 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException();
     const authUser = this.toAuthUser(user);
-    return { accessToken: this.tokenFor(authUser), user: authUser };
+    return this.issueSession(authUser);
   }
 }

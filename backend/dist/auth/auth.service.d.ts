@@ -11,6 +11,7 @@ export declare class AuthService {
     private readonly logger;
     constructor(prisma: PrismaService, jwt: JwtService, firebase: FirebaseAdminService);
     private tokenFor;
+    private issueSession;
     private toAuthUser;
     register(dto: RegisterDto): Promise<{
         accessToken: string;
@@ -32,13 +33,18 @@ export declare class AuthService {
         society: {
             id: string;
             name: string;
-            createdAt: Date;
             address: string;
+            createdAt: Date;
             updatedAt: Date;
+            city: string | null;
+            state: string | null;
             logoUrl: string | null;
             hasTowers: boolean;
             monthlyMaintenance: import("@prisma/client/runtime/library").Decimal | null;
             maintenanceSince: Date | null;
+            plan: import(".prisma/client").$Enums.SubscriptionPlan;
+            planExpiresAt: Date | null;
+            suspended: boolean;
         } | null;
         flat: {
             number: string;
@@ -51,20 +57,22 @@ export declare class AuthService {
             billingSince: Date | null;
         } | null;
         id: string;
-        societyId: string | null;
-        name: string;
-        flatId: string | null;
-        createdAt: Date;
         phone: string;
-        role: import(".prisma/client").$Enums.Role;
-        staffLabel: string | null;
-        trades: string[];
+        email: string | null;
         firebaseUid: string | null;
+        name: string;
         photoUrl: string | null;
+        role: import(".prisma/client").$Enums.Role;
+        societyId: string | null;
+        flatId: string | null;
+        staffLabel: string | null;
+        banned: boolean;
         address: string | null;
         joinedAt: Date | null;
         salary: import("@prisma/client/runtime/library").Decimal | null;
         archivedAt: Date | null;
+        trades: string[];
+        createdAt: Date;
         updatedAt: Date;
     }>;
     refresh(userId: string): Promise<{

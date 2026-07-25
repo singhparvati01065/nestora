@@ -27,19 +27,24 @@ export declare class SocietiesService {
             }[];
         } & {
             id: string;
-            societyId: string;
             name: string;
+            societyId: string;
             letter: string;
         })[];
         id: string;
         name: string;
-        createdAt: Date;
         address: string;
+        createdAt: Date;
         updatedAt: Date;
+        city: string | null;
+        state: string | null;
         logoUrl: string | null;
         hasTowers: boolean;
         monthlyMaintenance: Prisma.Decimal | null;
         maintenanceSince: Date | null;
+        plan: import(".prisma/client").$Enums.SubscriptionPlan;
+        planExpiresAt: Date | null;
+        suspended: boolean;
     }>;
     update(user: AuthUser, id: string, dto: UpdateSocietyDto): Promise<{
         stats: {
@@ -61,19 +66,24 @@ export declare class SocietiesService {
             }[];
         } & {
             id: string;
-            societyId: string;
             name: string;
+            societyId: string;
             letter: string;
         })[];
         id: string;
         name: string;
-        createdAt: Date;
         address: string;
+        createdAt: Date;
         updatedAt: Date;
+        city: string | null;
+        state: string | null;
         logoUrl: string | null;
         hasTowers: boolean;
         monthlyMaintenance: Prisma.Decimal | null;
         maintenanceSince: Date | null;
+        plan: import(".prisma/client").$Enums.SubscriptionPlan;
+        planExpiresAt: Date | null;
+        suspended: boolean;
     }>;
     updateProfile(user: AuthUser, id: string, dto: UpdateSocietyProfileDto): Promise<{
         stats: {
@@ -95,19 +105,24 @@ export declare class SocietiesService {
             }[];
         } & {
             id: string;
-            societyId: string;
             name: string;
+            societyId: string;
             letter: string;
         })[];
         id: string;
         name: string;
-        createdAt: Date;
         address: string;
+        createdAt: Date;
         updatedAt: Date;
+        city: string | null;
+        state: string | null;
         logoUrl: string | null;
         hasTowers: boolean;
         monthlyMaintenance: Prisma.Decimal | null;
         maintenanceSince: Date | null;
+        plan: import(".prisma/client").$Enums.SubscriptionPlan;
+        planExpiresAt: Date | null;
+        suspended: boolean;
     }>;
     private impactOf;
     findOne(id: string): Promise<{
@@ -130,19 +145,24 @@ export declare class SocietiesService {
             }[];
         } & {
             id: string;
-            societyId: string;
             name: string;
+            societyId: string;
             letter: string;
         })[];
         id: string;
         name: string;
-        createdAt: Date;
         address: string;
+        createdAt: Date;
         updatedAt: Date;
+        city: string | null;
+        state: string | null;
         logoUrl: string | null;
         hasTowers: boolean;
         monthlyMaintenance: Prisma.Decimal | null;
         maintenanceSince: Date | null;
+        plan: import(".prisma/client").$Enums.SubscriptionPlan;
+        planExpiresAt: Date | null;
+        suspended: boolean;
     }>;
     flats(societyId: string): Promise<{
         number: string;

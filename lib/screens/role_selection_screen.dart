@@ -1,11 +1,26 @@
 import 'package:flutter/material.dart';
 
+import '../app_version.dart';
 import '../models/user_role.dart';
 import 'login_screen.dart';
 
 /// First screen of the app. Asks the user who they are before login.
-class RoleSelectionScreen extends StatelessWidget {
+class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
+
+  @override
+  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
+}
+
+class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Check for an app update once the first frame is up.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) checkForUpdate(context);
+    });
+  }
 
   void _onRoleTapped(BuildContext context, UserRole role) {
     Navigator.of(context).push(

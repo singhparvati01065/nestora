@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../api/api_client.dart';
+import 'content_screen.dart';
 import '../api/auth_api.dart';
 import '../api/session.dart';
 import '../data/society_repository.dart';
@@ -166,6 +167,23 @@ class _UserProfileTabState extends State<UserProfileTab> {
                   _TradesCard(trades: user?.trades ?? const [], accent: _accent),
                   const SizedBox(height: 26),
                 ],
+                const _SectionLabel('Help & Legal'),
+                const SizedBox(height: 10),
+                for (final c in kContentPages)
+                  _ProfileRow(
+                    label: c.title,
+                    subtitle: '',
+                    icon: Icons.article_outlined,
+                    accent: _accent,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => ContentScreen(
+                        contentKey: c.key,
+                        title: c.title,
+                        accent: _accent,
+                      ),
+                    )),
+                  ),
+                const SizedBox(height: 20),
                 const _SectionLabel('Account'),
                 const SizedBox(height: 10),
                 _ProfileRow(

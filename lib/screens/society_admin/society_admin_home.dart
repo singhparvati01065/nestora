@@ -14,8 +14,10 @@ import '../loadable.dart';
 import '../picture_options_sheet.dart';
 import 'bills/bills_screen.dart';
 import 'complaints/complaints_screen.dart';
+import '../content_screen.dart';
 import 'amenities_admin_screen.dart';
 import 'staff_screen.dart';
+import 'support_screen.dart';
 import 'notices/notices_screen.dart';
 import 'notifications/notifications_screen.dart';
 import 'residents/residents_screen.dart';
@@ -294,6 +296,32 @@ class _MoreTabState extends State<_MoreTab> {
                     builder: (_) => const AmenitiesAdminScreen(),
                   )),
                 ),
+                _MoreRow(
+                  label: 'Support',
+                  subtitle: 'Raise a ticket & track its status',
+                  icon: Icons.support_agent_outlined,
+                  accent: _accent,
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const SupportScreen(),
+                  )),
+                ),
+                const SizedBox(height: 26),
+                const _SectionLabel('Help & Legal'),
+                const SizedBox(height: 10),
+                for (final c in kContentPages)
+                  _MoreRow(
+                    label: c.title,
+                    subtitle: '',
+                    icon: Icons.article_outlined,
+                    accent: _accent,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => ContentScreen(
+                        contentKey: c.key,
+                        title: c.title,
+                        accent: _accent,
+                      ),
+                    )),
+                  ),
                 const SizedBox(height: 26),
                 const _SectionLabel('Account'),
                 const SizedBox(height: 10),

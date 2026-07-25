@@ -32,6 +32,12 @@ let AuthService = AuthService_1 = class AuthService {
     tokenFor(user) {
         return this.jwt.sign(user);
     }
+    issueSession(authUser) {
+        void this.prisma.loginEvent
+            .create({ data: { userId: authUser.sub, role: authUser.role } })
+            .catch(() => null);
+        return { accessToken: this.tokenFor(authUser), user: authUser };
+    }
     toAuthUser(u) {
         return {
             sub: u.id,
@@ -67,7 +73,7 @@ let AuthService = AuthService_1 = class AuthService {
             },
         });
         const authUser = this.toAuthUser(user);
-        return { accessToken: this.tokenFor(authUser), user: authUser };
+        return this.issueSession(authUser);
     }
     async login(dto) {
         const user = await this.prisma.user.findUnique({
@@ -81,13 +87,16 @@ let AuthService = AuthService_1 = class AuthService {
         if (!ok)
             throw new common_1.UnauthorizedException('Invalid credentials');
         const authUser = this.toAuthUser(user);
-        return { accessToken: this.tokenFor(authUser), user: authUser };
+        return this.issueSession(authUser);
     }
     async firebaseLogin(dto) {
         const identity = await this.firebase.verify(dto.idToken);
         const phone = toLocalPhone(identity.phone);
         const existing = await this.prisma.user.findUnique({ where: { phone } });
         if (existing) {
+            if (existing.banned) {
+                throw new common_1.ForbiddenException('This account has been blocked.');
+            }
             if (existing.archivedAt) {
                 throw new common_1.ForbiddenException('This account has been removed. Ask your society admin.');
             }
@@ -101,7 +110,7 @@ let AuthService = AuthService_1 = class AuthService {
                     data: { firebaseUid: identity.uid },
                 });
             const authUser = this.toAuthUser(user);
-            return { accessToken: this.tokenFor(authUser), user: authUser };
+            return this.issueSession(authUser);
         }
         if (dto.role !== client_1.Role.SOCIETY_ADMIN) {
             throw new common_1.ForbiddenException('No account for this number. Ask your society admin to register you.');
@@ -116,7 +125,7 @@ let AuthService = AuthService_1 = class AuthService {
             },
         });
         const authUser = this.toAuthUser(created);
-        return { accessToken: this.tokenFor(authUser), user: authUser };
+        return this.issueSession(authUser);
     }
     async devLogin(dto) {
         if (process.env.NODE_ENV === 'production' ||
@@ -127,6 +136,9 @@ let AuthService = AuthService_1 = class AuthService {
             'This must never be reachable outside local development.');
         const phone = toLocalPhone(dto.phone);
         const existing = await this.prisma.user.findUnique({ where: { phone } });
+        if (existing?.banned) {
+            throw new common_1.ForbiddenException('This account has been blocked.');
+        }
         if (existing?.archivedAt) {
             throw new common_1.ForbiddenException('This account has been removed. Ask your society admin.');
         }
@@ -143,7 +155,7 @@ let AuthService = AuthService_1 = class AuthService {
                 },
             }));
         const authUser = this.toAuthUser(user);
-        return { accessToken: this.tokenFor(authUser), user: authUser };
+        return this.issueSession(authUser);
     }
     async me(userId) {
         const user = await this.prisma.user.findUnique({
@@ -160,7 +172,7 @@ let AuthService = AuthService_1 = class AuthService {
         if (!user)
             throw new common_1.UnauthorizedException();
         const authUser = this.toAuthUser(user);
-        return { accessToken: this.tokenFor(authUser), user: authUser };
+        return this.issueSession(authUser);
     }
 };
 exports.AuthService = AuthService;
