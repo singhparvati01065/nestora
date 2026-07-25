@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "552001166456",
+    "project_id": "nestora-app-2026",
+    "storage_bucket": "nestora-app-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:552001166456:android:e47d7db391dafc1916618d",
+        "android_client_info": {
+          "package_name": "com.nestora.nestora"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDtLlD8rJ4fYWzdIjnqI_0YC8vbpYyAlYY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
