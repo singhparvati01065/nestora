@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import '../push_notifications.dart';
 
 import '../models/user_role.dart';
 import 'api_client.dart';
@@ -97,6 +98,8 @@ class FirebaseAuthService {
 
   Future<void> signOut() async {
     await _auth.signOut();
+    // Before the session goes: unregistering needs the token it carries.
+    await PushNotifications.instance.unregister();
     await Session.instance.clear();
   }
 

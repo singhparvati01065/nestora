@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, Role } from '@prisma/client';
 import { AuthUser } from '../auth/decorators/current-user.decorator';
+import { applyPlanExpiry } from '../platform/plan';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSocietyDto, TowerSpecDto } from './dto/create-society.dto';
 import { UpdateSocietyDto } from './dto/update-society.dto';
@@ -74,7 +75,13 @@ export class SocietiesService {
 
     const society = await this.prisma.$transaction(async (tx) => {
       const created = await tx.society.create({
-        data: { name: dto.name, address: dto.address, hasTowers },
+        data: {
+          name: dto.name,
+          address: dto.address,
+          city: dto.city?.trim() || null,
+          state: dto.state?.trim() || null,
+          hasTowers,
+        },
       });
 
       for (let t = 0; t < letters.length; t++) {
@@ -244,6 +251,9 @@ export class SocietiesService {
     const data: Prisma.SocietyUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.address !== undefined) data.address = dto.address.trim();
+    // Blank means "no longer set", not an empty string in the panel's column.
+    if (dto.city !== undefined) data.city = dto.city.trim() || null;
+    if (dto.state !== undefined) data.state = dto.state.trim() || null;
     if (dto.logoUrl !== undefined) data.logoUrl = dto.logoUrl;
 
     await this.prisma.society.update({ where: { id }, data });
@@ -280,13 +290,15 @@ export class SocietiesService {
       },
     });
     if (!society) throw new NotFoundException('Society not found');
+    // Never report a premium plan that has already run out.
+    const current = await applyPlanExpiry(this.prisma, society);
 
     const totalFlats = society.towers.reduce((n, t) => n + t.flats.length, 0);
     const floors = society.towers.map((t) =>
       t.flats.reduce((mx, f) => Math.max(mx, f.floor), 0),
     );
     return {
-      ...society,
+      ...current,
       stats: {
         towers: society.towers.length,
         flats: totalFlats,

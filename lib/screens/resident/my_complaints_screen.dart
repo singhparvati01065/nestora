@@ -4,6 +4,7 @@ import '../../api/session.dart';
 import '../../data/complaints_repository.dart';
 import '../../models/complaint.dart';
 import '../../models/user_role.dart';
+import '../complaint_card.dart';
 import '../loadable.dart';
 import '../society_admin/admin_widgets.dart';
 
@@ -154,85 +155,17 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen>
           : ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
               itemCount: complaints.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
-                final c = complaints[index];
-                return Material(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(c.title,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 16)),
-                            ),
-                            _StatusChip(status: c.status),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(c.description,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant)),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Text('${c.category} • ${c.dateLabel}',
-                                style:
-                                    Theme.of(context).textTheme.bodySmall),
-                            if (c.assignedTo != null) ...[
-                              const Spacer(),
-                              Icon(Icons.engineering_outlined,
-                                  size: 14,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant),
-                              const SizedBox(width: 4),
-                              Text(c.assignedTo!,
-                                  style:
-                                      Theme.of(context).textTheme.bodySmall),
-                            ],
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                // The resident is looking at their own flat, so the flat number
+                // adds nothing; who is on it does.
+                return ComplaintCard(
+                  complaint: complaints[index],
+                  showFlat: false,
                 );
               },
             );
       }),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-  final ComplaintStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: status.color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(status.label,
-          style: TextStyle(
-              color: status.color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600)),
     );
   }
 }

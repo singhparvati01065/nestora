@@ -34,6 +34,12 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateTicketDto.prototype, "message", void 0);
+class ReplyDto {
+}
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], ReplyDto.prototype, "body", void 0);
 let SupportController = class SupportController {
     constructor(prisma) {
         this.prisma = prisma;
@@ -42,6 +48,9 @@ let SupportController = class SupportController {
         return this.prisma.supportTicket.findMany({
             where: { societyId: (0, society_scope_1.resolveSocietyId)(user) },
             orderBy: { createdAt: 'desc' },
+            include: {
+                replies: { orderBy: { createdAt: 'asc' } },
+            },
         });
     }
     create(user, dto) {
@@ -53,6 +62,32 @@ let SupportController = class SupportController {
                 message: dto.message.trim(),
             },
         });
+    }
+    async reply(user, id, dto) {
+        const body = dto.body.trim();
+        if (!body)
+            throw new common_1.NotFoundException('Nothing to send');
+        const ticket = await this.prisma.supportTicket.findFirst({
+            where: { id, societyId: (0, society_scope_1.resolveSocietyId)(user) },
+            select: { id: true, status: true },
+        });
+        if (!ticket)
+            throw new common_1.NotFoundException('Ticket not found');
+        const reply = await this.prisma.ticketReply.create({
+            data: {
+                ticketId: ticket.id,
+                body,
+                author: user.name,
+                fromSupport: false,
+            },
+        });
+        if (ticket.status !== client_1.TicketStatus.OPEN) {
+            await this.prisma.supportTicket.update({
+                where: { id: ticket.id },
+                data: { status: client_1.TicketStatus.OPEN },
+            });
+        }
+        return reply;
     }
 };
 __decorate([
@@ -72,6 +107,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, CreateTicketDto]),
     __metadata("design:returntype", void 0)
 ], SupportController.prototype, "create", null);
+__decorate([
+    (0, roles_decorator_1.Roles)(client_1.Role.SOCIETY_ADMIN, client_1.Role.SUPER_ADMIN),
+    (0, common_1.Post)(':id/replies'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, ReplyDto]),
+    __metadata("design:returntype", Promise)
+], SupportController.prototype, "reply", null);
 SupportController = __decorate([
     (0, common_1.Controller)('support'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])

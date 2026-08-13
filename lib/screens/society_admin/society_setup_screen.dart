@@ -31,10 +31,12 @@ class SocietySetupScreen extends StatefulWidget {
 /// a 20-floor tower to two inputs instead of twenty boxes.
 class _TowerFields {
   _TowerFields({int floors = 0, int flatsPerFloor = 0})
-      : floorsController =
-            TextEditingController(text: floors > 0 ? '$floors' : ''),
-        flatsController = TextEditingController(
-            text: flatsPerFloor > 0 ? '$flatsPerFloor' : '');
+    : floorsController = TextEditingController(
+        text: floors > 0 ? '$floors' : '',
+      ),
+      flatsController = TextEditingController(
+        text: flatsPerFloor > 0 ? '$flatsPerFloor' : '',
+      );
 
   final TextEditingController floorsController;
 
@@ -58,9 +60,9 @@ class _TowerFields {
 
   /// Floors with no exception yet — what "add an exception" can still offer.
   List<int> get availableFloors => [
-        for (var f = 1; f <= floorCount; f++)
-          if (!exceptions.containsKey(f)) f,
-      ];
+    for (var f = 1; f <= floorCount; f++)
+      if (!exceptions.containsKey(f)) f,
+  ];
 
   /// Drops exceptions for floors that no longer exist after the count shrank.
   void pruneExceptions() {
@@ -89,10 +91,8 @@ class _TowerFields {
   }
 
   /// Final per-floor flat counts to build the tower from.
-  List<int> resolveFlatsPerFloor() => List.generate(
-        floorCount,
-        (i) => exceptions[i + 1] ?? uniformFlats,
-      );
+  List<int> resolveFlatsPerFloor() =>
+      List.generate(floorCount, (i) => exceptions[i + 1] ?? uniformFlats);
 
   int get totalFlats => resolveFlatsPerFloor().fold(0, (a, b) => a + b);
 
@@ -108,6 +108,8 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _addressController;
+  late final TextEditingController _cityController;
+  late final TextEditingController _stateController;
   late final TextEditingController _towersCountController;
 
   final List<_TowerFields> _towerFields = [];
@@ -131,12 +133,15 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
     final s = widget.existing;
     _nameController = TextEditingController(text: s?.name ?? '');
     _addressController = TextEditingController(text: s?.address ?? '');
+    _cityController = TextEditingController(text: s?.city ?? '');
+    _stateController = TextEditingController(text: s?.state ?? '');
     _nameController.addListener(() => setState(() {}));
 
     if (s != null) {
       _hasTowers = s.hasTowers;
-      _towersCountController =
-          TextEditingController(text: s.towers.length.toString());
+      _towersCountController = TextEditingController(
+        text: s.towers.length.toString(),
+      );
       for (final tower in s.towers) {
         final fields = _TowerFields();
         fields.seedFromCounts(tower.flatsPerFloorCounts);
@@ -153,6 +158,8 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
   void dispose() {
     _nameController.dispose();
     _addressController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
     _towersCountController.dispose();
     for (final f in [..._towerFields, ..._detachedTowers]) {
       f.dispose();
@@ -178,15 +185,16 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
     setState(() {
       while (_towerFields.length < count) {
         // Bring back a tower the user shrank past, before making a blank one.
-        _towerFields.add(_detachedTowers.isNotEmpty
-            ? _detachedTowers.removeLast()
-            : _TowerFields());
+        _towerFields.add(
+          _detachedTowers.isNotEmpty
+              ? _detachedTowers.removeLast()
+              : _TowerFields(),
+        );
       }
       while (_towerFields.length > count) {
         _detachedTowers.add(_towerFields.removeLast());
       }
-      if (_towerFields.isNotEmpty &&
-          !_towerFields.any((t) => t.expanded)) {
+      if (_towerFields.isNotEmpty && !_towerFields.any((t) => t.expanded)) {
         _towerFields.first.expanded = true;
       }
     });
@@ -251,6 +259,8 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
         await SocietyRepository.instance.create(
           name: _nameController.text.trim(),
           address: _addressController.text.trim(),
+          city: _cityController.text.trim(),
+          state: _stateController.text.trim(),
           towerSpecs: specs,
           hasTowers: _hasTowers,
         );
@@ -264,9 +274,9 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ApiClient.messageFor(e))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(ApiClient.messageFor(e))));
     }
   }
 
@@ -284,20 +294,25 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Removing ${flats.length} '
-                '${flats.length == 1 ? 'flat' : 'flats'} also deletes:'),
+            Text(
+              'Removing ${flats.length} '
+              '${flats.length == 1 ? 'flat' : 'flats'} also deletes:',
+            ),
             const SizedBox(height: 8),
             for (final line in loss.losses)
               Padding(
                 padding: const EdgeInsets.only(bottom: 2),
-                child: Text('•  $line',
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                child: Text(
+                  '•  $line',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
             const SizedBox(height: 12),
             Text(
               'Flats: $shown${rest > 0 ? ' +$rest more' : ''}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             const Text('This cannot be undone.'),
@@ -373,6 +388,37 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
                   validator: (v) =>
                       (v?.trim().isEmpty ?? true) ? 'Enter address' : null,
                 ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _cityController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'City',
+                          hintText: 'e.g. Pune',
+                          prefixIcon: Icon(Icons.location_city_outlined),
+                        ),
+                        validator: (v) =>
+                            (v?.trim().isEmpty ?? true) ? 'Enter city' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _stateController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'State',
+                          hintText: 'e.g. Maharashtra',
+                        ),
+                        validator: (v) =>
+                            (v?.trim().isEmpty ?? true) ? 'Enter state' : null,
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 26),
               ],
               _SectionLabel(_hasTowers ? 'Towers' : 'Building'),
@@ -381,9 +427,6 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
                 hasTowers: _hasTowers,
                 accent: _accent,
                 onChanged: _setHasTowers,
-                // Switching an existing society renumbers every flat, so say so
-                // rather than only finding out at the confirm dialog.
-                isEditing: _isEditing,
               ),
               const SizedBox(height: 14),
               if (_hasTowers) ...[
@@ -392,7 +435,7 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
                   helper: _towerFields.isEmpty
                       ? 'Named A, B, C… automatically'
                       : 'Towers ${String.fromCharCode(65)}'
-                          '–${String.fromCharCode(64 + _towerFields.length)}',
+                            '–${String.fromCharCode(64 + _towerFields.length)}',
                   controller: _towersCountController,
                   accent: _accent,
                   icon: Icons.holiday_village_outlined,
@@ -414,11 +457,12 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
               if (_totalFlatsPreview > 0) ...[
                 const SizedBox(height: 6),
                 _PreviewHint(
-                    total: _totalFlatsPreview,
-                    towers: _towerFields.length,
-                    accent: _accent,
-                    isEditing: _isEditing,
-                    hasTowers: _hasTowers),
+                  total: _totalFlatsPreview,
+                  towers: _towerFields.length,
+                  accent: _accent,
+                  isEditing: _isEditing,
+                  hasTowers: _hasTowers,
+                ),
               ],
               const SizedBox(height: 22),
               FilledButton.icon(
@@ -432,7 +476,9 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.check),
                 label: Text(_isEditing ? 'Save Changes' : 'Create Society'),
@@ -444,7 +490,8 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
                   'Removing a flat that has any will ask first.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant),
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ],
@@ -485,15 +532,11 @@ class _LayoutChoice extends StatelessWidget {
     required this.hasTowers,
     required this.accent,
     required this.onChanged,
-    required this.isEditing,
   });
 
   final bool hasTowers;
   final Color accent;
   final ValueChanged<bool> onChanged;
-
-  /// Switches the caption from "decides" to a warning about renumbering.
-  final bool isEditing;
 
   @override
   Widget build(BuildContext context) {
@@ -525,20 +568,6 @@ class _LayoutChoice extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.only(left: 4),
-          child: Text(
-            isEditing
-                ? 'Switching renumbers every flat, which deletes the existing '
-                    'ones and everything attached to them.'
-                : 'This decides how flats are numbered.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: isEditing
-                    ? Theme.of(context).colorScheme.error
-                    : Theme.of(context).colorScheme.onSurfaceVariant),
-          ),
-        ),
       ],
     );
   }
@@ -565,7 +594,9 @@ class _LayoutOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: selected ? accent.withValues(alpha: 0.10) : theme.colorScheme.surface,
+      color: selected
+          ? accent.withValues(alpha: 0.10)
+          : theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -583,18 +614,26 @@ class _LayoutOption extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon,
-                    size: 22,
-                    color: selected ? accent : theme.colorScheme.outline),
+                Icon(
+                  icon,
+                  size: 22,
+                  color: selected ? accent : theme.colorScheme.outline,
+                ),
                 const SizedBox(height: 8),
-                Text(title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: selected ? accent : null)),
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: selected ? accent : null,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant)),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             ),
           ),
@@ -648,7 +687,10 @@ class _CountRow extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         _StepButton(
-            icon: Icons.remove, accent: accent, onTap: () => onStep(-1)),
+          icon: Icons.remove,
+          accent: accent,
+          onTap: () => onStep(-1),
+        ),
         const SizedBox(width: 6),
         _StepButton(icon: Icons.add, accent: accent, onTap: () => onStep(1)),
       ],
@@ -710,10 +752,13 @@ class _LogoHeader extends StatelessWidget {
           const SizedBox(height: 8),
           // A picture can only be uploaded once the society exists, so the
           // create path points at where to add one.
-          Text('Add a picture later in Society details',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            'Add a picture later in Society details',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );
@@ -748,11 +793,15 @@ class _TowerConfigCard extends StatelessWidget {
         accent: accent,
         // Editing keeps its own floor selectable; adding cannot reuse a floor
         // that already has a row.
-        selectableFloors: floor == null
-            ? fields.availableFloors
-            : [floor, ...fields.availableFloors]..sort(),
+        selectableFloors:
+            floor == null
+                  ? fields.availableFloors
+                  : [floor, ...fields.availableFloors]
+              ..sort(),
         initialFloor: floor,
-        initialFlats: floor == null ? fields.uniformFlats : fields.exceptions[floor]!,
+        initialFlats: floor == null
+            ? fields.uniformFlats
+            : fields.exceptions[floor]!,
       ),
     );
     if (result == null) return;
@@ -799,38 +848,45 @@ class _TowerConfigCard extends StatelessWidget {
                     ),
                     child: letter == null
                         ? Icon(Icons.apartment_rounded, color: accent, size: 20)
-                        : Text(letter!,
+                        : Text(
+                            letter!,
                             style: theme.textTheme.titleMedium?.copyWith(
-                                color: accent, fontWeight: FontWeight.w700)),
+                              color: accent,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(letter == null ? 'The building' : 'Tower $letter',
-                            style: theme.textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w600)),
+                        Text(
+                          letter == null ? 'The building' : 'Tower $letter',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: 2),
                         Text(
                           floors == 0
                               ? 'Not configured yet'
                               : '$floors ${floors == 1 ? 'floor' : 'floors'} • '
-                                  '$total ${total == 1 ? 'flat' : 'flats'}'
-                                  '${fields.exceptions.isEmpty ? '' : ' • ${fields.exceptions.length} custom'}',
+                                    '$total ${total == 1 ? 'flat' : 'flats'}'
+                                    '${fields.exceptions.isEmpty ? '' : ' • ${fields.exceptions.length} custom'}',
                           style: theme.textTheme.bodySmall?.copyWith(
-                              color: floors == 0
-                                  ? theme.colorScheme.error
-                                  : theme.colorScheme.onSurfaceVariant),
+                            color: floors == 0
+                                ? theme.colorScheme.error
+                                : theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   Icon(
-                      fields.expanded
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      color: theme.colorScheme.outline),
+                    fields.expanded ? Icons.expand_less : Icons.expand_more,
+                    color: theme.colorScheme.outline,
+                  ),
                 ],
               ),
             ),
@@ -892,9 +948,11 @@ class _TowerConfigCard extends StatelessWidget {
                           visualDensity: VisualDensity.compact,
                         ),
                         icon: const Icon(Icons.add, size: 18),
-                        label: Text(fields.exceptions.isEmpty
-                            ? 'A floor is different?'
-                            : 'Add another floor'),
+                        label: Text(
+                          fields.exceptions.isEmpty
+                              ? 'A floor is different?'
+                              : 'Add another floor',
+                        ),
                       ),
                     ),
                 ],
@@ -948,17 +1006,25 @@ class _ExceptionRow extends StatelessWidget {
                 Icon(Icons.tune, size: 16, color: accent),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text('Floor $floor',
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  child: Text(
+                    'Floor $floor',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-                Text('$flats ${flats == 1 ? 'flat' : 'flats'}',
-                    style: theme.textTheme.bodyMedium?.copyWith(color: accent)),
+                Text(
+                  '$flats ${flats == 1 ? 'flat' : 'flats'}',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: accent),
+                ),
                 IconButton(
                   tooltip: 'Remove',
                   visualDensity: VisualDensity.compact,
-                  icon: Icon(Icons.close,
-                      size: 18, color: theme.colorScheme.onSurfaceVariant),
+                  icon: Icon(
+                    Icons.close,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                   onPressed: onRemove,
                 ),
               ],
@@ -998,9 +1064,11 @@ class _FloorExceptionDialogState extends State<_FloorExceptionDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      title: Text(widget.initialFloor == null
-          ? 'Which floor is different?'
-          : 'Floor $_floor'),
+      title: Text(
+        widget.initialFloor == null
+            ? 'Which floor is different?'
+            : 'Floor $_floor',
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1029,10 +1097,13 @@ class _FloorExceptionDialogState extends State<_FloorExceptionDialog> {
                 onTap: () => setState(() => _flats = (_flats - 1).clamp(1, 50)),
               ),
               Expanded(
-                child: Text('$_flats',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w700)),
+                child: Text(
+                  '$_flats',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
               _StepButton(
                 icon: Icons.add,
@@ -1104,9 +1175,7 @@ class _PreviewHint extends StatelessWidget {
         children: [
           Icon(Icons.info_outline, size: 18, color: accent),
           const SizedBox(width: 10),
-          Expanded(
-            child: Text(_summary(), style: theme.textTheme.bodySmall),
-          ),
+          Expanded(child: Text(_summary(), style: theme.textTheme.bodySmall)),
         ],
       ),
     );

@@ -2,8 +2,10 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Module,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -25,12 +27,26 @@ class CreateNoticeDto {
 class NoticesController {
   constructor(private prisma: PrismaService) {}
 
-  /// All roles in the society can read notices; pinned first, then newest.
+  /// The society's own notice board — all roles can read it; pinned first,
+  /// then newest. Nestora's announcements are deliberately NOT here: they are
+  /// platform matters for the admin, not society business every resident
+  /// should scroll past. See [announcements].
   @Get()
   list(@CurrentUser() user: AuthUser) {
     return this.prisma.notice.findMany({
-      where: { societyId: resolveSocietyId(user) },
+      where: { societyId: resolveSocietyId(user), fromPlatform: false },
       orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  /// Announcements Nestora broadcast to this society, newest first. Read-only
+  /// and admin-facing — the society cannot pin, edit or remove them.
+  @Roles(Role.SOCIETY_ADMIN, Role.SUPER_ADMIN)
+  @Get('announcements')
+  announcements(@CurrentUser() user: AuthUser) {
+    return this.prisma.notice.findMany({
+      where: { societyId: resolveSocietyId(user), fromPlatform: true },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -47,10 +63,28 @@ class NoticesController {
     });
   }
 
+  /// The notice, if this user may change it: only within their own society,
+  /// and never a platform announcement unless they are the super admin who
+  /// sent it. Anything else reads as missing.
+  private async ownNotice(user: AuthUser, id: string) {
+    const where =
+      user.role === Role.SUPER_ADMIN
+        ? { id }
+        : { id, societyId: resolveSocietyId(user) };
+    const notice = await this.prisma.notice.findFirst({ where });
+    if (!notice) throw new NotFoundException('Notice not found');
+    if (notice.fromPlatform && user.role !== Role.SUPER_ADMIN) {
+      throw new ForbiddenException(
+        'This announcement is from Nestora and cannot be changed here.',
+      );
+    }
+    return notice;
+  }
+
   @Roles(Role.SOCIETY_ADMIN, Role.SUPER_ADMIN)
   @Patch(':id/pin')
-  async togglePin(@Param('id') id: string) {
-    const notice = await this.prisma.notice.findUniqueOrThrow({ where: { id } });
+  async togglePin(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    const notice = await this.ownNotice(user, id);
     return this.prisma.notice.update({
       where: { id },
       data: { pinned: !notice.pinned },
@@ -59,7 +93,8 @@ class NoticesController {
 
   @Roles(Role.SOCIETY_ADMIN, Role.SUPER_ADMIN)
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  async remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.ownNotice(user, id);
     return this.prisma.notice.delete({ where: { id } });
   }
 }

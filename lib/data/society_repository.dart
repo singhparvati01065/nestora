@@ -112,16 +112,23 @@ class SocietyRepository {
     required String name,
     required String address,
     required List<TowerSpec> towerSpecs,
+    String? city,
+    String? state,
     bool hasTowers = true,
   }) async {
-    final data = await _api.post('/societies', body: {
-      'name': name,
-      'address': address,
-      'hasTowers': hasTowers,
-      'towers': [
-        for (final t in towerSpecs) {'flatsPerFloor': t.flatsPerFloor},
-      ],
-    });
+    final data = await _api.post(
+      '/societies',
+      body: {
+        'name': name,
+        'address': address,
+        'city': ?city,
+        'state': ?state,
+        'hasTowers': hasTowers,
+        'towers': [
+          for (final t in towerSpecs) {'flatsPerFloor': t.flatsPerFloor},
+        ],
+      },
+    );
     _society = Society.fromJson(data as Map<String, dynamic>);
     // The society was just linked to this admin, but the login token still has
     // societyId=null. Refresh it so every society-scoped call now resolves.
@@ -141,6 +148,8 @@ class SocietyRepository {
   Future<void> updateProfile({
     String? name,
     String? address,
+    String? city,
+    String? state,
     Object? logoUrl = _unset,
   }) async {
     final id = _society?.id;
@@ -150,6 +159,9 @@ class SocietyRepository {
     final body = <String, dynamic>{
       'name': ?name,
       'address': ?address,
+      // Sent as given: an empty string clears the field on the server.
+      'city': ?city,
+      'state': ?state,
     };
     if (!identical(logoUrl, _unset)) body['logoUrl'] = logoUrl;
 
@@ -175,13 +187,16 @@ class SocietyRepository {
       throw StateError('No society loaded to update');
     }
     try {
-      final data = await _api.patch('/societies/$id', body: {
-        'hasTowers': ?hasTowers,
-        'towers': [
-          for (final t in towerSpecs) {'flatsPerFloor': t.flatsPerFloor},
-        ],
-        if (force) 'force': true,
-      });
+      final data = await _api.patch(
+        '/societies/$id',
+        body: {
+          'hasTowers': ?hasTowers,
+          'towers': [
+            for (final t in towerSpecs) {'flatsPerFloor': t.flatsPerFloor},
+          ],
+          if (force) 'force': true,
+        },
+      );
       _society = Society.fromJson(data as Map<String, dynamic>);
     } catch (e) {
       final destructive = DestructiveChange.tryParse(e);

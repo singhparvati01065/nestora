@@ -20,6 +20,7 @@ const current_user_decorator_1 = require("../auth/decorators/current-user.decora
 const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const society_scope_1 = require("../common/society-scope");
 const prisma_service_1 = require("../prisma/prisma.service");
+const feature_decorator_1 = require("../platform/feature.decorator");
 class CreateDeliveryDto {
 }
 __decorate([
@@ -83,6 +84,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], DeliveriesController.prototype, "toggleCollected", null);
 DeliveriesController = __decorate([
+    (0, feature_decorator_1.RequiresFeature)('visitors'),
     (0, common_1.Controller)('deliveries'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], DeliveriesController);

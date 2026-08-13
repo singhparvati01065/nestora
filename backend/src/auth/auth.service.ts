@@ -41,9 +41,26 @@ export class AuthService {
     return this.jwt.sign(user);
   }
 
+  /// A suspended society is off the air: nobody inside it may sign in, its
+  /// admin included. Suspension is set from the super-admin panel.
+  private async assertSocietyActive(societyId: string | null) {
+    if (!societyId) return;
+    const society = await this.prisma.society.findUnique({
+      where: { id: societyId },
+      select: { suspended: true },
+    });
+    if (society?.suspended) {
+      throw new ForbiddenException(
+        'This society has been suspended. Please contact Nestora support.',
+      );
+    }
+  }
+
   /// Issues the token response and records the login (for the admin panel's
-  /// login analytics). Fire-and-forget so it never blocks the sign-in.
-  private issueSession(authUser: AuthUser) {
+  /// login analytics). The login event is fire-and-forget so it never blocks
+  /// the sign-in.
+  private async issueSession(authUser: AuthUser) {
+    await this.assertSocietyActive(authUser.societyId);
     void this.prisma.loginEvent
       .create({ data: { userId: authUser.sub, role: authUser.role } })
       .catch(() => null);
@@ -114,6 +131,17 @@ export class AuthService {
 
     const ok = await bcrypt.compare(dto.password, user.password);
     if (!ok) throw new UnauthorizedException('Invalid credentials');
+
+    // Same standing rules as the OTP path — a blocked or removed account keeps
+    // its password, but not its way in.
+    if (user.banned) {
+      throw new ForbiddenException('This account has been blocked.');
+    }
+    if (user.archivedAt) {
+      throw new ForbiddenException(
+        'This account has been removed. Ask your society admin.',
+      );
+    }
 
     const authUser = this.toAuthUser(user);
     return this.issueSession(authUser);

@@ -41,8 +41,14 @@ let NoticesController = class NoticesController {
     }
     list(user) {
         return this.prisma.notice.findMany({
-            where: { societyId: (0, society_scope_1.resolveSocietyId)(user) },
+            where: { societyId: (0, society_scope_1.resolveSocietyId)(user), fromPlatform: false },
             orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
+        });
+    }
+    announcements(user) {
+        return this.prisma.notice.findMany({
+            where: { societyId: (0, society_scope_1.resolveSocietyId)(user), fromPlatform: true },
+            orderBy: { createdAt: 'desc' },
         });
     }
     create(user, dto) {
@@ -55,14 +61,27 @@ let NoticesController = class NoticesController {
             },
         });
     }
-    async togglePin(id) {
-        const notice = await this.prisma.notice.findUniqueOrThrow({ where: { id } });
+    async ownNotice(user, id) {
+        const where = user.role === client_1.Role.SUPER_ADMIN
+            ? { id }
+            : { id, societyId: (0, society_scope_1.resolveSocietyId)(user) };
+        const notice = await this.prisma.notice.findFirst({ where });
+        if (!notice)
+            throw new common_1.NotFoundException('Notice not found');
+        if (notice.fromPlatform && user.role !== client_1.Role.SUPER_ADMIN) {
+            throw new common_1.ForbiddenException('This announcement is from Nestora and cannot be changed here.');
+        }
+        return notice;
+    }
+    async togglePin(user, id) {
+        const notice = await this.ownNotice(user, id);
         return this.prisma.notice.update({
             where: { id },
             data: { pinned: !notice.pinned },
         });
     }
-    remove(id) {
+    async remove(user, id) {
+        await this.ownNotice(user, id);
         return this.prisma.notice.delete({ where: { id } });
     }
 };
@@ -75,6 +94,14 @@ __decorate([
 ], NoticesController.prototype, "list", null);
 __decorate([
     (0, roles_decorator_1.Roles)(client_1.Role.SOCIETY_ADMIN, client_1.Role.SUPER_ADMIN),
+    (0, common_1.Get)('announcements'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], NoticesController.prototype, "announcements", null);
+__decorate([
+    (0, roles_decorator_1.Roles)(client_1.Role.SOCIETY_ADMIN, client_1.Role.SUPER_ADMIN),
     (0, common_1.Post)(),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
@@ -85,18 +112,20 @@ __decorate([
 __decorate([
     (0, roles_decorator_1.Roles)(client_1.Role.SOCIETY_ADMIN, client_1.Role.SUPER_ADMIN),
     (0, common_1.Patch)(':id/pin'),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], NoticesController.prototype, "togglePin", null);
 __decorate([
     (0, roles_decorator_1.Roles)(client_1.Role.SOCIETY_ADMIN, client_1.Role.SUPER_ADMIN),
     (0, common_1.Delete)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
 ], NoticesController.prototype, "remove", null);
 NoticesController = __decorate([
     (0, common_1.Controller)('notices'),

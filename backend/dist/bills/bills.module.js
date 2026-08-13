@@ -20,6 +20,8 @@ const current_user_decorator_1 = require("../auth/decorators/current-user.decora
 const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const society_scope_1 = require("../common/society-scope");
 const prisma_service_1 = require("../prisma/prisma.service");
+const push_service_1 = require("../push/push.service");
+const feature_decorator_1 = require("../platform/feature.decorator");
 const maintenance_billing_1 = require("./maintenance-billing");
 const rent_billing_1 = require("./rent-billing");
 class GenerateBillsDto {
@@ -71,8 +73,9 @@ __decorate([
     __metadata("design:type", String)
 ], UpdateBillDto.prototype, "title", void 0);
 let BillsController = class BillsController {
-    constructor(prisma) {
+    constructor(prisma, push) {
         this.prisma = prisma;
+        this.push = push;
     }
     async list(user, flatId) {
         if (user.role === client_1.Role.RESIDENT) {
@@ -103,6 +106,22 @@ let BillsController = class BillsController {
                 pendingCount: bills.filter((b) => !b.paid).length,
             },
         };
+    }
+    async ownBill(user, id) {
+        const where = { id, deletedAt: null };
+        if (user.role !== client_1.Role.SUPER_ADMIN) {
+            where.societyId = (0, society_scope_1.resolveSocietyId)(user);
+            if (user.role === client_1.Role.RESIDENT) {
+                if (!user.flatId) {
+                    throw new common_1.ForbiddenException('No flat linked to this account');
+                }
+                where.flatId = user.flatId;
+            }
+        }
+        const bill = await this.prisma.bill.findFirst({ where, select: { id: true } });
+        if (!bill)
+            throw new common_1.NotFoundException('Bill not found');
+        return bill;
     }
     async generate(user, dto) {
         const societyId = (0, society_scope_1.resolveSocietyId)(user);
@@ -195,7 +214,8 @@ let BillsController = class BillsController {
         }
         return { created: after - before, period: (0, maintenance_billing_1.monthLabelOf)(start) };
     }
-    pay(id) {
+    async pay(user, id) {
+        await this.ownBill(user, id);
         return this.prisma.bill.update({
             where: { id },
             data: { paid: true, paidAt: new Date() },
@@ -203,9 +223,19 @@ let BillsController = class BillsController {
     }
     async payMany(user, dto) {
         const paidAt = new Date();
-        const where = user.role === client_1.Role.RESIDENT && user.flatId
-            ? { id: { in: dto.ids }, flatId: user.flatId }
-            : { id: { in: dto.ids } };
+        const where = {
+            id: { in: dto.ids },
+            deletedAt: null,
+        };
+        if (user.role !== client_1.Role.SUPER_ADMIN) {
+            where.societyId = (0, society_scope_1.resolveSocietyId)(user);
+            if (user.role === client_1.Role.RESIDENT) {
+                if (!user.flatId) {
+                    throw new common_1.ForbiddenException('No flat linked to this account');
+                }
+                where.flatId = user.flatId;
+            }
+        }
         const res = await this.prisma.bill.updateMany({
             where,
             data: { paid: true, paidAt },
@@ -226,14 +256,16 @@ let BillsController = class BillsController {
                 const who = user.name
                     ? `${user.name} (Flat ${flatNumber})`
                     : `Flat ${flatNumber}`;
+                const body = `${who} paid ₹${total.toFixed(0)} for ${bills.length} ` +
+                    `bill${bills.length === 1 ? '' : 's'}.`;
                 await this.prisma.appNotification.create({
                     data: {
                         societyId: bills[0].societyId,
                         title: 'Payment received',
-                        body: `${who} paid ₹${total.toFixed(0)} for ${bills.length} ` +
-                            `bill${bills.length === 1 ? '' : 's'}.`,
+                        body,
                     },
                 });
+                void this.push.sendToSocietyAdmins([bills[0].societyId], 'Payment received', body);
             }
         }
         return { paid: res.count, paidAt };
@@ -288,13 +320,15 @@ let BillsController = class BillsController {
         }
         return this.prisma.bill.update({ where: { id }, data });
     }
-    unpay(id) {
+    async unpay(user, id) {
+        await this.ownBill(user, id);
         return this.prisma.bill.update({
             where: { id },
             data: { paid: false, paidAt: null },
         });
     }
-    remove(id) {
+    async remove(user, id) {
+        await this.ownBill(user, id);
         return this.prisma.bill.update({
             where: { id },
             data: { deletedAt: new Date() },
@@ -319,13 +353,16 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], BillsController.prototype, "generate", null);
 __decorate([
+    (0, roles_decorator_1.Roles)(client_1.Role.RESIDENT, client_1.Role.SOCIETY_ADMIN, client_1.Role.SUPER_ADMIN),
     (0, common_1.Patch)(':id/pay'),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
 ], BillsController.prototype, "pay", null);
 __decorate([
+    (0, roles_decorator_1.Roles)(client_1.Role.RESIDENT, client_1.Role.SOCIETY_ADMIN, client_1.Role.SUPER_ADMIN),
     (0, common_1.Post)('pay'),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
@@ -346,22 +383,26 @@ __decorate([
 __decorate([
     (0, roles_decorator_1.Roles)(client_1.Role.SOCIETY_ADMIN, client_1.Role.SUPER_ADMIN),
     (0, common_1.Patch)(':id/unpay'),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
 ], BillsController.prototype, "unpay", null);
 __decorate([
     (0, roles_decorator_1.Roles)(client_1.Role.SOCIETY_ADMIN, client_1.Role.SUPER_ADMIN),
     (0, common_1.Delete)(':id'),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
 ], BillsController.prototype, "remove", null);
 BillsController = __decorate([
+    (0, feature_decorator_1.RequiresFeature)('online_payments'),
     (0, common_1.Controller)('bills'),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        push_service_1.PushService])
 ], BillsController);
 let BillsModule = class BillsModule {
 };

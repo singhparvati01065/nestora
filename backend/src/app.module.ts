@@ -14,7 +14,11 @@ import { PreApprovedModule } from './gate/pre-approved.module';
 import { VisitorsModule } from './gate/visitors.module';
 import { NoticesModule } from './notices/notices.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AccountStatusGuard } from './platform/account-status.guard';
+import { FeatureGuard } from './platform/feature.guard';
+import { PlatformModule } from './platform/platform.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { PushModule } from './push/push.module';
 import { ResidentsModule } from './residents/residents.module';
 import { SocietiesModule } from './societies/societies.module';
 import { StaffModule } from './staff/staff.module';
@@ -26,6 +30,8 @@ import { UsersModule } from './users/users.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    PlatformModule,
+    PushModule,
     AuthModule,
     SocietiesModule,
     UploadsModule,
@@ -49,6 +55,11 @@ import { UsersModule } from './users/users.module';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     // Global RBAC: @Roles(...) is enforced after authentication.
     { provide: APP_GUARD, useClass: RolesGuard },
+    // A valid token is not enough: the account must still be in good standing
+    // and its society must not be suspended.
+    { provide: APP_GUARD, useClass: AccountStatusGuard },
+    // Modules switched off in the super-admin panel are closed here too.
+    { provide: APP_GUARD, useClass: FeatureGuard },
   ],
 })
 export class AppModule {}

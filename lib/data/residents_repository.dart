@@ -27,8 +27,9 @@ class ResidentsRepository extends ChangeNotifier {
 
   Future<void> load() async {
     final data = await _api.get('/residents') as List;
-    _residents =
-        data.map((e) => Resident.fromJson(e as Map<String, dynamic>)).toList();
+    _residents = data
+        .map((e) => Resident.fromJson(e as Map<String, dynamic>))
+        .toList();
     notifyListeners();
   }
 
@@ -45,23 +46,29 @@ class ResidentsRepository extends ChangeNotifier {
     int? familyMembers,
     List<String> documentUrls = const [],
   }) async {
-    await _api.post('/residents', body: {
-      'name': name,
-      'phone': phone,
-      'flatId': flatId,
-      'type': type.api,
-      if (moveInDate != null)
-        'moveInDate': moveInDate.toIso8601String().split('T').first,
-      'monthlyRent': ?rent,
-      'advanceAmount': ?advance,
-      'maintenanceAmount': ?maintenance,
-      'occupation': ?occupation,
-      'familyMembers': ?familyMembers,
-      if (documentUrls.isNotEmpty) 'documentUrls': documentUrls,
-    });
+    await _api.post(
+      '/residents',
+      body: {
+        'name': name,
+        'phone': phone,
+        'flatId': flatId,
+        'type': type.api,
+        if (moveInDate != null)
+          'moveInDate': moveInDate.toIso8601String().split('T').first,
+        'monthlyRent': ?rent,
+        'advanceAmount': ?advance,
+        'maintenanceAmount': ?maintenance,
+        'occupation': ?occupation,
+        'familyMembers': ?familyMembers,
+        if (documentUrls.isNotEmpty) 'documentUrls': documentUrls,
+      },
+    );
     await load();
   }
 
+  /// Unlike the other fields, [monthlyRent] and [advance] are always sent —
+  /// null included. An owner pays neither, so switching a tenant to an owner has
+  /// to erase what they had rather than silently leaving the old amounts.
   Future<void> update(
     Resident resident, {
     String? name,
@@ -75,19 +82,22 @@ class ResidentsRepository extends ChangeNotifier {
     int? familyMembers,
     List<String>? documentUrls,
   }) async {
-    await _api.patch('/residents/${resident.id}', body: {
-      'name': ?name,
-      'phone': ?phone,
-      if (type != null) 'type': type.api,
-      'monthlyRent': ?monthlyRent,
-      if (moveInDate != null)
-        'moveInDate': moveInDate.toIso8601String().split('T').first,
-      'advanceAmount': ?advance,
-      'maintenanceAmount': ?maintenance,
-      'occupation': ?occupation,
-      'familyMembers': ?familyMembers,
-      'documentUrls': ?documentUrls,
-    });
+    await _api.patch(
+      '/residents/${resident.id}',
+      body: {
+        'name': ?name,
+        'phone': ?phone,
+        if (type != null) 'type': type.api,
+        'monthlyRent': monthlyRent,
+        if (moveInDate != null)
+          'moveInDate': moveInDate.toIso8601String().split('T').first,
+        'advanceAmount': advance,
+        'maintenanceAmount': ?maintenance,
+        'occupation': ?occupation,
+        'familyMembers': ?familyMembers,
+        'documentUrls': ?documentUrls,
+      },
+    );
     await load();
   }
 

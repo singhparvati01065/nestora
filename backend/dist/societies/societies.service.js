@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SocietiesService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
+const plan_1 = require("../platform/plan");
 const prisma_service_1 = require("../prisma/prisma.service");
 function flatNumbersFor(letter, spec) {
     const numbers = [];
@@ -51,7 +52,13 @@ let SocietiesService = class SocietiesService {
         const letters = lettersFor(hasTowers, dto.towers.length);
         const society = await this.prisma.$transaction(async (tx) => {
             const created = await tx.society.create({
-                data: { name: dto.name, address: dto.address, hasTowers },
+                data: {
+                    name: dto.name,
+                    address: dto.address,
+                    city: dto.city?.trim() || null,
+                    state: dto.state?.trim() || null,
+                    hasTowers,
+                },
             });
             for (let t = 0; t < letters.length; t++) {
                 const letter = letters[t];
@@ -173,6 +180,10 @@ let SocietiesService = class SocietiesService {
             data.name = dto.name.trim();
         if (dto.address !== undefined)
             data.address = dto.address.trim();
+        if (dto.city !== undefined)
+            data.city = dto.city.trim() || null;
+        if (dto.state !== undefined)
+            data.state = dto.state.trim() || null;
         if (dto.logoUrl !== undefined)
             data.logoUrl = dto.logoUrl;
         await this.prisma.society.update({ where: { id }, data });
@@ -204,10 +215,11 @@ let SocietiesService = class SocietiesService {
         });
         if (!society)
             throw new common_1.NotFoundException('Society not found');
+        const current = await (0, plan_1.applyPlanExpiry)(this.prisma, society);
         const totalFlats = society.towers.reduce((n, t) => n + t.flats.length, 0);
         const floors = society.towers.map((t) => t.flats.reduce((mx, f) => Math.max(mx, f.floor), 0));
         return {
-            ...society,
+            ...current,
             stats: {
                 towers: society.towers.length,
                 flats: totalFlats,

@@ -4,8 +4,11 @@ import '../../api/api_client.dart';
 import '../../api/auth_api.dart';
 import '../../api/session.dart';
 import '../../data/complaints_repository.dart';
+import '../../feature_flags.dart';
 import '../../models/complaint.dart';
 import '../../models/user_role.dart';
+import '../feature_off_screen.dart';
+import '../complaint_card.dart';
 import '../society_admin/admin_widgets.dart';
 import '../user_profile_tab.dart';
 
@@ -40,6 +43,12 @@ class _MaintenanceStaffHomeState extends State<MaintenanceStaffHome> {
   }
 
   Future<void> _load() async {
+    // Their tasks are complaints; with that module off there is nothing to
+    // fetch, and the API would refuse anyway.
+    if (!FeatureFlags.instance.complaints) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     try {
       await _repo.load();
     } catch (_) {
@@ -55,13 +64,12 @@ class _MaintenanceStaffHomeState extends State<MaintenanceStaffHome> {
       if (mounted) setState(() {});
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ApiClient.messageFor(e))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(ApiClient.messageFor(e))));
       }
     }
   }
-
 
   /// Opens a task's detail sheet: description + status controls. For an
   /// unassigned task, an "Accept" button assigns it to this staff member.
@@ -82,28 +90,33 @@ class _MaintenanceStaffHomeState extends State<MaintenanceStaffHome> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(c.title,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(fontWeight: FontWeight.bold)),
+                        child: Text(
+                          c.title,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                      _StatusChip(status: c.status),
+                      ComplaintStatusChip(status: c.status),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text('Flat ${c.flatNumber} • ${c.category} • ${c.dateLabel}',
-                      style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    'Flat ${c.flatNumber} • ${c.category} • ${c.dateLabel}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                   const SizedBox(height: 12),
-                  Text(c.description,
-                      style: Theme.of(context).textTheme.bodyLarge),
+                  Text(
+                    c.description,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
                   const SizedBox(height: 20),
                   if (mine) ...[
-                    Text('Update status',
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelLarge
-                            ?.copyWith(fontWeight: FontWeight.w600)),
+                    Text(
+                      'Update status',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -130,7 +143,9 @@ class _MaintenanceStaffHomeState extends State<MaintenanceStaffHome> {
                         _mutate(() async {
                           await _repo.assign(c, _staff);
                           await _repo.updateStatus(
-                              c, ComplaintStatus.inProgress);
+                            c,
+                            ComplaintStatus.inProgress,
+                          );
                         });
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Task accepted')),
@@ -156,8 +171,9 @@ class _MaintenanceStaffHomeState extends State<MaintenanceStaffHome> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _savingTrades = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(ApiClient.messageFor(e))));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(ApiClient.messageFor(e))));
     }
   }
 
@@ -165,6 +181,15 @@ class _MaintenanceStaffHomeState extends State<MaintenanceStaffHome> {
 
   @override
   Widget build(BuildContext context) {
+    // Their whole console is complaints; with the module off there is no work
+    // to show, not even the trade onboarding.
+    if (!FeatureFlags.instance.complaints) {
+      return FeatureOffScreen(
+        title: _staff,
+        feature: 'Complaints',
+        accent: _accent,
+      );
+    }
     // No trades yet → onboarding, not the task console.
     if (!_loading && _myTrades.isEmpty) {
       return _TradeSetup(
@@ -177,10 +202,12 @@ class _MaintenanceStaffHomeState extends State<MaintenanceStaffHome> {
 
     final mine = _repo.assignedTo(_staff);
     // My Tasks holds only live work; finished ones move to their own tab.
-    final myActive =
-        mine.where((c) => c.status != ComplaintStatus.resolved).toList();
-    final myResolved =
-        mine.where((c) => c.status == ComplaintStatus.resolved).toList();
+    final myActive = mine
+        .where((c) => c.status != ComplaintStatus.resolved)
+        .toList();
+    final myResolved = mine
+        .where((c) => c.status == ComplaintStatus.resolved)
+        .toList();
     // Only complaints in this staff's trades — the trade-based routing.
     final available = _repo.availableFor(_myTrades);
 
@@ -245,37 +272,35 @@ class _MaintenanceStaffHomeState extends State<MaintenanceStaffHome> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : onProfile
-              ? const UserProfileTab()
-              : IndexedStack(
-                  index: _index,
-                  children: [
-                    _TaskList(
-                      tasks: myActive,
-                      accent: _accent,
-                      emptyText:
-                          'No active tasks.\nCheck the Available tab.',
-                      onTap: (c) => _openTask(c, mine: true),
-                    ),
-                    _TaskList(
-                      tasks: myResolved,
-                      accent: _accent,
-                      emptyText: "Nothing you've resolved yet.",
-                      onTap: (c) => _openTask(c, mine: true),
-                    ),
-                    _TaskList(
-                      tasks: available,
-                      accent: _accent,
-                      emptyText: _myTrades.isEmpty
-                          ? 'No trades set on your account yet.\n'
-                              'Add them in Profile to receive complaints.'
-                          : 'No open complaints in your trades right now.',
-                      onTap: (c) => _openTask(c, mine: false),
-                    ),
-                  ],
+          ? const UserProfileTab()
+          : IndexedStack(
+              index: _index,
+              children: [
+                _TaskList(
+                  tasks: myActive,
+                  accent: _accent,
+                  emptyText: 'No active tasks.\nCheck the Available tab.',
+                  onTap: (c) => _openTask(c, mine: true),
                 ),
+                _TaskList(
+                  tasks: myResolved,
+                  accent: _accent,
+                  emptyText: "Nothing you've resolved yet.",
+                  onTap: (c) => _openTask(c, mine: true),
+                ),
+                _TaskList(
+                  tasks: available,
+                  accent: _accent,
+                  emptyText: _myTrades.isEmpty
+                      ? 'No trades set on your account yet.\n'
+                            'Add them in Profile to receive complaints.'
+                      : 'No open complaints in your trades right now.',
+                  onTap: (c) => _openTask(c, mine: false),
+                ),
+              ],
+            ),
     );
   }
-
 }
 
 class _TaskList extends StatelessWidget {
@@ -299,82 +324,21 @@ class _TaskList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       itemCount: tasks.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final c = tasks[index];
-        return Material(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(14),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () => onTap(c),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(c.title,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 16)),
-                      ),
-                      _StatusChip(status: c.status),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(c.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color:
-                              Theme.of(context).colorScheme.onSurfaceVariant)),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.home_outlined,
-                          size: 14,
-                          color:
-                              Theme.of(context).colorScheme.onSurfaceVariant),
-                      const SizedBox(width: 4),
-                      Text('Flat ${c.flatNumber} • ${c.category}',
-                          style: Theme.of(context).textTheme.bodySmall),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
+        // Staff work across flats but always inside their own trade, so the
+        // flat matters and the assignee (them) does not.
+        return ComplaintCard(
+          complaint: c,
+          onTap: () => onTap(c),
+          showAssignee: false,
         );
       },
     );
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-  final ComplaintStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: status.color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(status.label,
-          style: TextStyle(
-              color: status.color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600)),
-    );
-  }
-}
-
-/// First-run onboarding for a maintenance account with no trades yet.
-/// Picking the work they handle is what makes complaints start routing to them.
 class _TradeSetup extends StatefulWidget {
   const _TradeSetup({
     required this.accent,
@@ -417,19 +381,26 @@ class _TradeSetupState extends State<_TradeSetup> {
                 color: widget.accent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(Icons.engineering_outlined,
-                  color: widget.accent, size: 32),
+              child: Icon(
+                Icons.engineering_outlined,
+                color: widget.accent,
+                size: 32,
+              ),
             ),
             const SizedBox(height: 20),
-            Text('Hi ${widget.name} 👋',
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              'Hi ${widget.name} 👋',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 6),
             Text(
               'What work do you handle? Complaints in these categories will '
               'come to you.',
               style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant),
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 20),
             Wrap(
@@ -442,8 +413,8 @@ class _TradeSetupState extends State<_TradeSetup> {
                     selected: _trades.contains(c),
                     selectedColor: widget.accent.withValues(alpha: 0.18),
                     checkmarkColor: widget.accent,
-                    onSelected: (on) => setState(
-                        () => on ? _trades.add(c) : _trades.remove(c)),
+                    onSelected: (on) =>
+                        setState(() => on ? _trades.add(c) : _trades.remove(c)),
                   ),
               ],
             ),
@@ -461,7 +432,9 @@ class _TradeSetupState extends State<_TradeSetup> {
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.check),
               label: const Text('Continue'),

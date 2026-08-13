@@ -17,6 +17,7 @@ import { AuthUser, CurrentUser } from '../auth/decorators/current-user.decorator
 import { Roles } from '../auth/decorators/roles.decorator';
 import { resolveSocietyId } from '../common/society-scope';
 import { PrismaService } from '../prisma/prisma.service';
+import { RequiresFeature } from '../platform/feature.decorator';
 
 class BookAmenityDto {
   @IsString() amenityId: string;
@@ -42,6 +43,7 @@ class BookingStatusDto {
 /// Bookings that still hold a slot (not rejected).
 const ACTIVE = { not: BookingStatus.REJECTED };
 
+@RequiresFeature('amenities')
 @Controller('amenities')
 class AmenitiesController {
   constructor(private prisma: PrismaService) {}

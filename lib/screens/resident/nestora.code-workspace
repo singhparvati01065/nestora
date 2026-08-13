@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../../.."
+		},
+		{
+			"path": "../../../../nestora_backend"
+		},
+		{
+			"path": "../../../../nestora-admin"
+		}
+	],
+	"settings": {}
+}

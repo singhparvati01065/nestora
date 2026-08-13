@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../push_notifications.dart';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -111,6 +112,8 @@ class _UserProfileTabState extends State<UserProfileTab> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    // Before the session goes: unregistering needs the token it carries.
+    await PushNotifications.instance.unregister();
     await Session.instance.clear();
     if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
   }
@@ -126,8 +129,9 @@ class _UserProfileTabState extends State<UserProfileTab> {
   }
 
   void _snack(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -164,7 +168,10 @@ class _UserProfileTabState extends State<UserProfileTab> {
                   const _SectionLabel('Work you handle'),
                   const SizedBox(height: 10),
                   // Display only — editing happens through Edit profile below.
-                  _TradesCard(trades: user?.trades ?? const [], accent: _accent),
+                  _TradesCard(
+                    trades: user?.trades ?? const [],
+                    accent: _accent,
+                  ),
                   const SizedBox(height: 26),
                 ],
                 const _SectionLabel('Help & Legal'),
@@ -172,16 +179,18 @@ class _UserProfileTabState extends State<UserProfileTab> {
                 for (final c in kContentPages)
                   _ProfileRow(
                     label: c.title,
-                    subtitle: '',
+                    subtitle: c.subtitle,
                     icon: Icons.article_outlined,
                     accent: _accent,
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => ContentScreen(
-                        contentKey: c.key,
-                        title: c.title,
-                        accent: _accent,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ContentScreen(
+                          contentKey: c.key,
+                          title: c.title,
+                          accent: _accent,
+                        ),
                       ),
-                    )),
+                    ),
                   ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Account'),
@@ -239,9 +248,12 @@ class _TradesCard extends StatelessWidget {
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: trades.isEmpty
-          ? Text('No work set yet — add it in Edit profile.',
+          ? Text(
+              'No work set yet — add it in Edit profile.',
               style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant))
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
           : Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -249,14 +261,20 @@ class _TradesCard extends StatelessWidget {
                 for (final t in trades)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(t,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                            color: accent, fontWeight: FontWeight.w600)),
+                    child: Text(
+                      t,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -312,8 +330,7 @@ class _ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     // "Security Guard • Green Valley" — drops the dot when there is no society.
-    final chip =
-        society == null ? roleLabel : '$roleLabel • $society';
+    final chip = society == null ? roleLabel : '$roleLabel • $society';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
@@ -351,7 +368,9 @@ class _ProfileHeader extends StatelessWidget {
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -367,8 +386,11 @@ class _ProfileHeader extends StatelessWidget {
                     onTap: onChangePhoto,
                     child: Padding(
                       padding: const EdgeInsets.all(6),
-                      child: Icon(Icons.photo_camera_outlined,
-                          size: 16, color: accent),
+                      child: Icon(
+                        Icons.photo_camera_outlined,
+                        size: 16,
+                        color: accent,
+                      ),
                     ),
                   ),
                 ),
@@ -376,15 +398,22 @@ class _ProfileHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Text(name,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleLarge?.copyWith(
-                  color: Colors.white, fontWeight: FontWeight.w700)),
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           if (phone.isNotEmpty) ...[
             const SizedBox(height: 3),
-            Text(phone,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.85))),
+            Text(
+              phone,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.85),
+              ),
+            ),
           ],
           const SizedBox(height: 12),
           Container(
@@ -397,12 +426,19 @@ class _ProfileHeader extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.verified_user_outlined,
-                    size: 14, color: Colors.white),
+                const Icon(
+                  Icons.verified_user_outlined,
+                  size: 14,
+                  color: Colors.white,
+                ),
                 const SizedBox(width: 6),
-                Text(chip,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                        color: Colors.white, fontWeight: FontWeight.w600)),
+                Text(
+                  chip,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
@@ -468,19 +504,28 @@ class _ProfileRow extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(label,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: danger ? tint : null)),
+                        Text(
+                          label,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: danger ? tint : null,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text(subtitle,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant)),
+                        Text(
+                          subtitle,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  Icon(Icons.chevron_right,
-                      size: 20, color: theme.colorScheme.outline),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: theme.colorScheme.outline,
+                  ),
                 ],
               ),
             ),

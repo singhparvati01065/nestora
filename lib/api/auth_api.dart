@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import '../models/user_role.dart';
+import '../push_notifications.dart';
 import 'api_client.dart';
 import 'session.dart';
 
@@ -130,6 +133,9 @@ class AuthApi {
   Future<AuthUser> _store(dynamic data) async {
     final user = AuthUser.fromJson(data['user'] as Map<String, dynamic>);
     await Session.instance.save(data['accessToken'] as String, user);
+    // Every sign-in path lands here, so this is the one place the device has
+    // to be registered for push. It needs the token saved above.
+    unawaited(PushNotifications.instance.register());
     return user;
   }
 }

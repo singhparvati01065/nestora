@@ -14,6 +14,7 @@ import { AuthUser, CurrentUser } from '../auth/decorators/current-user.decorator
 import { Roles } from '../auth/decorators/roles.decorator';
 import { resolveSocietyId } from '../common/society-scope';
 import { PrismaService } from '../prisma/prisma.service';
+import { RequiresFeature } from '../platform/feature.decorator';
 
 class CreatePreApprovedDto {
   @IsString() name: string;
@@ -21,6 +22,7 @@ class CreatePreApprovedDto {
   @IsString() validLabel: string;
 }
 
+@RequiresFeature('visitors')
 @Controller('pre-approved')
 class PreApprovedController {
   constructor(private prisma: PrismaService) {}

@@ -23,11 +23,17 @@ class SupportRepository {
     required String subject,
     required String message,
   }) async {
-    await _api.post('/support', body: {
-      'category': category,
-      'subject': subject,
-      'message': message,
-    });
+    await _api.post(
+      '/support',
+      body: {'category': category, 'subject': subject, 'message': message},
+    );
+    await load();
+  }
+
+  /// Answers support on an existing ticket. A closed ticket reopens, so the
+  /// reply does not land somewhere nobody is looking.
+  Future<void> reply(String ticketId, String body) async {
+    await _api.post('/support/$ticketId/replies', body: {'body': body});
     await load();
   }
 }

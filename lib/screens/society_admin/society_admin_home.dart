@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../push_notifications.dart';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +8,7 @@ import '../../api/api_client.dart';
 import '../../api/session.dart';
 import '../../data/notifications_repository.dart';
 import '../../data/society_repository.dart';
+import '../../feature_flags.dart';
 import '../../models/society.dart';
 import '../../models/user_role.dart';
 import '../avatar_image.dart';
@@ -16,6 +18,7 @@ import 'bills/bills_screen.dart';
 import 'complaints/complaints_screen.dart';
 import '../content_screen.dart';
 import 'amenities_admin_screen.dart';
+import 'announcements_screen.dart';
 import 'staff_screen.dart';
 import 'support_screen.dart';
 import 'notices/notices_screen.dart';
@@ -55,37 +58,44 @@ class _SocietyAdminHomeState extends State<SocietyAdminHome> {
         children: [
           _OverviewTab(key: _overviewKey),
           const ResidentsScreen(),
-          const BillsScreen(),
-          const ComplaintsScreen(),
-          _MoreTab(onStructureChanged: () => _overviewKey.currentState?.refresh()),
+          // Bills and Complaints are platform modules the super admin can
+          // switch off; the destinations below follow the same conditions so
+          // the indices stay aligned.
+          if (FeatureFlags.instance.payments) const BillsScreen(),
+          if (FeatureFlags.instance.complaints) const ComplaintsScreen(),
+          _MoreTab(
+            onStructureChanged: () => _overviewKey.currentState?.refresh(),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         indicatorColor: _accent.withValues(alpha: 0.16),
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard),
             label: 'Home',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.people_outline),
             selectedIcon: Icon(Icons.people),
             label: 'Residents',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Bills',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.report_problem_outlined),
-            selectedIcon: Icon(Icons.report_problem),
-            label: 'Complaints',
-          ),
-          NavigationDestination(
+          if (FeatureFlags.instance.payments)
+            const NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(Icons.receipt_long),
+              label: 'Bills',
+            ),
+          if (FeatureFlags.instance.complaints)
+            const NavigationDestination(
+              icon: Icon(Icons.report_problem_outlined),
+              selectedIcon: Icon(Icons.report_problem),
+              label: 'Complaints',
+            ),
+          const NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: 'Profile',
@@ -170,8 +180,9 @@ class _MoreTabState extends State<_MoreTab> {
   }
 
   void _snack(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openSocietyDetails() async {
@@ -187,9 +198,7 @@ class _MoreTabState extends State<_MoreTab> {
   Future<void> _openStructure() async {
     final society = SocietyRepository.instance.society;
     final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => SocietySetupScreen(existing: society),
-      ),
+      MaterialPageRoute(builder: (_) => SocietySetupScreen(existing: society)),
     );
     if (saved == true) widget.onStructureChanged();
   }
@@ -214,6 +223,8 @@ class _MoreTabState extends State<_MoreTab> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    // Before the session goes: unregistering needs the token it carries.
+    await PushNotifications.instance.unregister();
     await Session.instance.clear();
     if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
   }
@@ -253,8 +264,7 @@ class _MoreTabState extends State<_MoreTab> {
             accent: _accent,
             busy: _busy,
             // No society yet means nothing to attach a picture to.
-            onChangePicture:
-                (_busy || society == null) ? null : _changePicture,
+            onChangePicture: (_busy || society == null) ? null : _changePicture,
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
@@ -283,27 +293,41 @@ class _MoreTabState extends State<_MoreTab> {
                   subtitle: 'Guards & maintenance — add and manage logins',
                   icon: Icons.groups_outlined,
                   accent: _accent,
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const StaffScreen(),
-                  )),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const StaffScreen()),
+                  ),
                 ),
+                if (FeatureFlags.instance.amenities)
+                  _MoreRow(
+                    label: 'Amenities',
+                    subtitle: 'Manage amenities & approve bookings',
+                    icon: Icons.deck_outlined,
+                    accent: _accent,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const AmenitiesAdminScreen(),
+                      ),
+                    ),
+                  ),
                 _MoreRow(
-                  label: 'Amenities',
-                  subtitle: 'Manage amenities & approve bookings',
-                  icon: Icons.deck_outlined,
+                  label: 'Announcements',
+                  subtitle: 'Updates from Nestora',
+                  icon: Icons.campaign_outlined,
                   accent: _accent,
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const AmenitiesAdminScreen(),
-                  )),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const AnnouncementsScreen(),
+                    ),
+                  ),
                 ),
                 _MoreRow(
                   label: 'Support',
                   subtitle: 'Raise a ticket & track its status',
                   icon: Icons.support_agent_outlined,
                   accent: _accent,
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => const SupportScreen(),
-                  )),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SupportScreen()),
+                  ),
                 ),
                 const SizedBox(height: 26),
                 const _SectionLabel('Help & Legal'),
@@ -311,16 +335,18 @@ class _MoreTabState extends State<_MoreTab> {
                 for (final c in kContentPages)
                   _MoreRow(
                     label: c.title,
-                    subtitle: '',
+                    subtitle: c.subtitle,
                     icon: Icons.article_outlined,
                     accent: _accent,
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => ContentScreen(
-                        contentKey: c.key,
-                        title: c.title,
-                        accent: _accent,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ContentScreen(
+                          contentKey: c.key,
+                          title: c.title,
+                          accent: _accent,
+                        ),
                       ),
-                    )),
+                    ),
                   ),
                 const SizedBox(height: 26),
                 const _SectionLabel('Account'),
@@ -421,7 +447,9 @@ class _ProfileHeader extends StatelessWidget {
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
@@ -439,8 +467,11 @@ class _ProfileHeader extends StatelessWidget {
                     onTap: onChangePicture,
                     child: Padding(
                       padding: const EdgeInsets.all(6),
-                      child: Icon(Icons.photo_camera_outlined,
-                          size: 16, color: accent),
+                      child: Icon(
+                        Icons.photo_camera_outlined,
+                        size: 16,
+                        color: accent,
+                      ),
                     ),
                   ),
                 ),
@@ -448,15 +479,22 @@ class _ProfileHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Text(title,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleLarge?.copyWith(
-                  color: Colors.white, fontWeight: FontWeight.w700)),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           if (phone.isNotEmpty) ...[
             const SizedBox(height: 3),
-            Text(phone,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.85))),
+            Text(
+              phone,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.white.withValues(alpha: 0.85),
+              ),
+            ),
           ],
           const SizedBox(height: 12),
           Container(
@@ -469,12 +507,19 @@ class _ProfileHeader extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.verified_user_outlined,
-                    size: 14, color: Colors.white),
+                const Icon(
+                  Icons.verified_user_outlined,
+                  size: 14,
+                  color: Colors.white,
+                ),
                 const SizedBox(width: 6),
-                Text('Admin • $userName',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                        color: Colors.white, fontWeight: FontWeight.w600)),
+                Text(
+                  'Admin • $userName',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
@@ -540,19 +585,28 @@ class _MoreRow extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(label,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: danger ? tint : null)),
+                        Text(
+                          label,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: danger ? tint : null,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text(subtitle,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant)),
+                        Text(
+                          subtitle,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  Icon(Icons.chevron_right,
-                      size: 20, color: theme.colorScheme.outline),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: theme.colorScheme.outline,
+                  ),
                 ],
               ),
             ),
@@ -605,8 +659,9 @@ class _OverviewTabState extends State<_OverviewTab>
   }
 
   Future<void> _openNotifications() async {
-    await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
     if (mounted) setState(() {});
   }
 
@@ -614,16 +669,15 @@ class _OverviewTabState extends State<_OverviewTab>
   /// mode, which diffs towers/flats instead of creating a second society.
   Future<void> _openSetup({Society? existing}) async {
     final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => SocietySetupScreen(existing: existing),
-      ),
+      MaterialPageRoute(builder: (_) => SocietySetupScreen(existing: existing)),
     );
     if (saved == true) refresh();
   }
 
   Future<void> _openNotices() {
-    return Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => const NoticesScreen()));
+    return Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const NoticesScreen()));
   }
 
   @override
@@ -685,15 +739,19 @@ class _EmptyState extends StatelessWidget {
           children: [
             Icon(Icons.apartment_rounded, size: 72, color: accent),
             const SizedBox(height: 16),
-            Text('No society set up yet',
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              'No society set up yet',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             const SizedBox(height: 8),
             Text(
               'Add your society details, towers and flats to get started.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
@@ -732,7 +790,8 @@ class _SocietyOverview extends StatelessWidget {
         Row(
           children: [
             Expanded(
-                child: _SectionLabel(society.hasTowers ? 'Towers' : 'Building')),
+              child: _SectionLabel(society.hasTowers ? 'Towers' : 'Building'),
+            ),
             TextButton.icon(
               onPressed: onEdit,
               style: TextButton.styleFrom(
@@ -747,7 +806,10 @@ class _SocietyOverview extends StatelessWidget {
         const SizedBox(height: 6),
         for (final tower in society.towers)
           _TowerTile(
-              tower: tower, accent: accent, hasTowers: society.hasTowers),
+            tower: tower,
+            accent: accent,
+            hasTowers: society.hasTowers,
+          ),
       ],
     );
   }
@@ -811,24 +873,32 @@ class _SocietyHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(society.name,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2)),
+                Text(
+                  society.name,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.location_on_outlined,
-                        size: 14,
-                        color: Colors.white.withValues(alpha: 0.75)),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 14,
+                      color: Colors.white.withValues(alpha: 0.75),
+                    ),
                     const SizedBox(width: 5),
                     Expanded(
-                      child: Text(society.address,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.85),
-                              height: 1.35)),
+                      child: Text(
+                        society.address,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          height: 1.35,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -863,18 +933,19 @@ class _StatsBar extends StatelessWidget {
           children: [
             if (society.hasTowers) ...[
               _Stat(
-                  label: 'Towers',
-                  value: '${society.numberOfTowers}',
-                  accent: accent),
+                label: 'Towers',
+                value: '${society.numberOfTowers}',
+                accent: accent,
+              ),
               _StatDivider(color: theme.colorScheme.outlineVariant),
             ],
-            _Stat(
-                label: 'Floors', value: society.floorsLabel, accent: accent),
+            _Stat(label: 'Floors', value: society.floorsLabel, accent: accent),
             _StatDivider(color: theme.colorScheme.outlineVariant),
             _Stat(
-                label: 'Flats',
-                value: '${society.totalFlats}',
-                accent: accent),
+              label: 'Flats',
+              value: '${society.totalFlats}',
+              accent: accent,
+            ),
           ],
         ),
       ),
@@ -888,16 +959,17 @@ class _StatDivider extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) =>
-      VerticalDivider(width: 1, thickness: 1, indent: 14, endIndent: 14, color: color);
+  Widget build(BuildContext context) => VerticalDivider(
+    width: 1,
+    thickness: 1,
+    indent: 14,
+    endIndent: 14,
+    color: color,
+  );
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({
-    required this.label,
-    required this.value,
-    required this.accent,
-  });
+  const _Stat({required this.label, required this.value, required this.accent});
 
   final String label;
   final String value;
@@ -911,13 +983,21 @@ class _Stat extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(
           children: [
-            Text(value,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700, color: accent, height: 1)),
+            Text(
+              value,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: accent,
+                height: 1,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant)),
+            Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),
@@ -969,37 +1049,52 @@ class _TowerTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(11),
                     ),
                     child: hasTowers
-                        ? Text(tower.letter,
+                        ? Text(
+                            tower.letter,
                             style: theme.textTheme.titleMedium?.copyWith(
-                                color: accent, fontWeight: FontWeight.w700))
-                        : Icon(Icons.apartment_rounded,
-                            color: accent, size: 21),
+                              color: accent,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          )
+                        : Icon(
+                            Icons.apartment_rounded,
+                            color: accent,
+                            size: 21,
+                          ),
                   ),
                   const SizedBox(width: 13),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(tower.name,
-                            style: theme.textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w600)),
+                        Text(
+                          tower.name,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: 3),
                         Row(
                           children: [
                             _Chip(
-                                text: '${tower.floors} floors',
-                                icon: Icons.stairs_outlined),
+                              text: '${tower.floors} floors',
+                              icon: Icons.stairs_outlined,
+                            ),
                             const SizedBox(width: 6),
                             _Chip(
-                                text: '${tower.flats.length} flats',
-                                icon: Icons.meeting_room_outlined),
+                              text: '${tower.flats.length} flats',
+                              icon: Icons.meeting_room_outlined,
+                            ),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  Icon(Icons.chevron_right,
-                      size: 20, color: theme.colorScheme.outline),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: theme.colorScheme.outline,
+                  ),
                 ],
               ),
             ),
@@ -1031,9 +1126,12 @@ class _Chip extends StatelessWidget {
         children: [
           Icon(icon, size: 12, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(width: 4),
-          Text(text,
-              style: theme.textTheme.labelSmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            text,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );

@@ -26,7 +26,9 @@ class Flat {
       floor: (json['floor'] as num).toInt(),
       // Leading letters of the flat number (e.g. "A" in "A101").
       towerLetter:
-          towerLetter ?? RegExp(r'^[A-Za-z]+').firstMatch(number)?.group(0) ?? '',
+          towerLetter ??
+          RegExp(r'^[A-Za-z]+').firstMatch(number)?.group(0) ??
+          '',
     );
   }
 }
@@ -75,7 +77,9 @@ class Tower {
   factory Tower.fromJson(Map<String, dynamic> json) {
     final letter = json['letter'] as String;
     final flats = ((json['flats'] as List?) ?? [])
-        .map((f) => Flat.fromJson(f as Map<String, dynamic>, towerLetter: letter))
+        .map(
+          (f) => Flat.fromJson(f as Map<String, dynamic>, towerLetter: letter),
+        )
         .toList();
     // Derive per-floor flat counts from the flats.
     final byFloor = <int, int>{};
@@ -108,6 +112,8 @@ class Society {
     required this.name,
     required this.address,
     required this.towers,
+    this.city,
+    this.state,
     this.logoUrl,
     this.hasTowers = true,
   });
@@ -115,6 +121,12 @@ class Society {
   String id;
   String name;
   String address;
+
+  /// City and state, shown to the super admin alongside the free-form address.
+  /// Null until the admin fills them in.
+  String? city;
+  String? state;
+
   List<Tower> towers;
 
   /// Stored path of the society logo; null falls back to the name's initial.
@@ -130,6 +142,8 @@ class Society {
       id: (json['id'] ?? '').toString(),
       name: json['name'] as String,
       address: json['address'] as String,
+      city: json['city'] as String?,
+      state: json['state'] as String?,
       logoUrl: json['logoUrl'] as String?,
       hasTowers: (json['hasTowers'] as bool?) ?? true,
       towers: ((json['towers'] as List?) ?? [])
@@ -174,20 +188,24 @@ class Society {
         final flatsOnFloor = spec.flatsPerFloor[floor - 1];
         for (var f = 1; f <= flatsOnFloor; f++) {
           final flatIndex = f.toString().padLeft(2, '0');
-          flats.add(Flat(
-            id: '',
-            number: '$letter$floor$flatIndex',
-            floor: floor,
-            towerLetter: letter,
-          ));
+          flats.add(
+            Flat(
+              id: '',
+              number: '$letter$floor$flatIndex',
+              floor: floor,
+              towerLetter: letter,
+            ),
+          );
         }
       }
-      towers.add(Tower(
-        name: 'Tower $letter',
-        letter: letter,
-        flatsPerFloorCounts: List<int>.from(spec.flatsPerFloor),
-        flats: flats,
-      ));
+      towers.add(
+        Tower(
+          name: 'Tower $letter',
+          letter: letter,
+          flatsPerFloorCounts: List<int>.from(spec.flatsPerFloor),
+          flats: flats,
+        ),
+      );
     }
 
     return Society(name: name, address: address, towers: towers);

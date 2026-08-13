@@ -93,9 +93,29 @@ class _NotificationTile extends StatelessWidget {
   final Color accent;
   final String when;
 
+  /// Icon and colour by what the notification is about, so a support reply and
+  /// a payment reminder do not look like the same thing at a glance.
+  static (IconData, Color) _look(String title) {
+    final t = title.toLowerCase();
+    if (t.contains('support') || t.contains('ticket')) {
+      return (Icons.support_agent_outlined, const Color(0xFF1565C0));
+    }
+    if (t.contains('plan') || t.contains('subscription')) {
+      return (Icons.workspace_premium_outlined, const Color(0xFFB26A00));
+    }
+    if (t.contains('announce') || t.contains('notice')) {
+      return (Icons.campaign_outlined, const Color(0xFF6A3DBF));
+    }
+    if (t.contains('complaint')) {
+      return (Icons.report_problem_outlined, const Color(0xFFC62828));
+    }
+    return (Icons.payments_outlined, const Color(0xFF2E7D32));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final (icon, tint) = _look(item.title);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -111,11 +131,10 @@ class _NotificationTile extends StatelessWidget {
             height: 42,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: const Color(0xFF2E7D32).withValues(alpha: 0.12),
+              color: tint.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(11),
             ),
-            child: const Icon(Icons.payments_outlined,
-                color: Color(0xFF2E7D32)),
+            child: Icon(icon, color: tint),
           ),
           const SizedBox(width: 12),
           Expanded(

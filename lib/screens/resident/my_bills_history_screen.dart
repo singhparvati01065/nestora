@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
 
 import '../../api/session.dart';
 import '../../data/bills_repository.dart';
+import '../../data/society_repository.dart';
 import '../../models/maintenance_bill.dart';
 import '../../models/user_role.dart';
+import '../../util/receipt_pdf.dart';
 import '../bill_kind_tag.dart';
 import '../loadable.dart';
 import '../society_admin/admin_widgets.dart';
@@ -93,20 +96,25 @@ class _MyBillsHistoryScreenState extends State<MyBillsHistoryScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Total paid • Flat ${widget.flat}',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: _accent)),
-                  const SizedBox(height: 6),
-                  Text(_money(totalPaid),
-                      style: TextStyle(
-                          color: _accent,
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold)),
                   Text(
-                      '${payments.length} payment${payments.length == 1 ? '' : 's'}',
-                      style: Theme.of(context).textTheme.bodySmall),
+                    'Total paid • Flat ${widget.flat}',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: _accent),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _money(totalPaid),
+                    style: TextStyle(
+                      color: _accent,
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '${payments.length} payment${payments.length == 1 ? '' : 's'}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ],
               ),
             ),
@@ -115,8 +123,11 @@ class _MyBillsHistoryScreenState extends State<MyBillsHistoryScreen>
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 itemCount: payments.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (context, index) =>
-                    _PaymentCard(bills: payments[index], accent: _accent),
+                itemBuilder: (context, index) => _PaymentCard(
+                  bills: payments[index],
+                  accent: _accent,
+                  flat: widget.flat,
+                ),
               ),
             ),
           ],
@@ -129,14 +140,56 @@ class _MyBillsHistoryScreenState extends State<MyBillsHistoryScreen>
 /// One payment: the combined amount and when it was paid, with each bill listed
 /// underneath so rent vs maintenance stays clear.
 class _PaymentCard extends StatelessWidget {
-  const _PaymentCard({required this.bills, required this.accent});
+  const _PaymentCard({
+    required this.bills,
+    required this.accent,
+    required this.flat,
+  });
 
   final List<MaintenanceBill> bills;
   final Color accent;
+  final String flat;
+
+  Future<void> _download(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final user = Session.instance.user;
+      final path = await BillReceipt.download(
+        bills: bills,
+        flat: flat,
+        residentName: user?.name ?? 'Resident',
+        phone: user?.phone ?? '',
+        societyName: SocietyRepository.instance.society?.name,
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text('Receipt saved to Downloads.'),
+          action: SnackBarAction(
+            label: 'Open',
+            onPressed: () => OpenFilex.open(path),
+          ),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not save the receipt.')),
+      );
+    }
+  }
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   String _money(double amount) => '₹${amount.toStringAsFixed(0)}';
@@ -169,42 +222,74 @@ class _PaymentCard extends StatelessWidget {
             // Header: date + paid badge, and the combined amount.
             Row(
               children: [
-                Icon(Icons.check_circle,
-                    color: const Color(0xFF2E7D32), size: 20),
+                Icon(
+                  Icons.check_circle,
+                  color: const Color(0xFF2E7D32),
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(_when(),
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(fontWeight: FontWeight.w600)),
+                  child: Text(
+                    _when(),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-                Text(_money(total),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold, color: accent)),
+                Text(
+                  _money(total),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: accent,
+                  ),
+                ),
               ],
             ),
             if (bills.length > 1)
               Padding(
                 padding: const EdgeInsets.only(top: 2, left: 28),
-                child: Text('Paid together • ${bills.length} bills',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant)),
+                child: Text(
+                  'Paid together • ${bills.length} bills',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
             const Divider(height: 20),
             // Line items — one row per bill so rent vs maintenance is clear.
-            ...bills.map((b) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Row(
-                    children: [
-                      BillKindTag(bill: b, accent: accent),
-                      const SizedBox(width: 8),
-                      Text(b.period, style: theme.textTheme.bodyMedium),
-                      const Spacer(),
-                      Text(_money(b.amount),
-                          style: theme.textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                )),
+            ...bills.map(
+              (b) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: [
+                    BillKindTag(bill: b, accent: accent),
+                    const SizedBox(width: 8),
+                    Text(b.period, style: theme.textTheme.bodyMedium),
+                    const Spacer(),
+                    Text(
+                      _money(b.amount),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 15),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => _download(context),
+                icon: const Icon(Icons.download_outlined, size: 18),
+                style: TextButton.styleFrom(
+                  foregroundColor: accent,
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                label: const Text('Download'),
+              ),
+            ),
           ],
         ),
       ),

@@ -19,13 +19,24 @@ class StaffScreen extends StatefulWidget {
   State<StaffScreen> createState() => _StaffScreenState();
 }
 
-class _StaffScreenState extends State<StaffScreen> with LoadableState<StaffScreen> {
+class _StaffScreenState extends State<StaffScreen>
+    with LoadableState<StaffScreen> {
   final _repo = StaffRepository.instance;
   Color get _accent => UserRole.societyAdmin.color;
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   @override
@@ -35,202 +46,264 @@ class _StaffScreenState extends State<StaffScreen> with LoadableState<StaffScree
     final isEdit = existing != null;
     final nameController = TextEditingController(text: existing?.name ?? '');
     final phoneController = TextEditingController(text: existing?.phone ?? '');
-    final addressController =
-        TextEditingController(text: existing?.address ?? '');
+    final addressController = TextEditingController(
+      text: existing?.address ?? '',
+    );
     final salaryController = TextEditingController(
-        text: existing?.salary != null
-            ? existing!.salary!.toStringAsFixed(0)
-            : '');
+      text: existing?.salary != null
+          ? existing!.salary!.toStringAsFixed(0)
+          : '',
+    );
     String role = existing?.role ?? 'SECURITY_GUARD';
     DateTime joinedAt = existing?.joinedAt ?? DateTime.now();
     final trades = <String>{...?existing?.trades};
-    String fmtDate(DateTime d) =>
-        '${d.day} ${_months[d.month - 1]} ${d.year}';
+    String fmtDate(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
+
+    final formKey = GlobalKey<FormState>();
+    // Chips are not form fields, so a missing trade is flagged by hand — and
+    // only once the admin has actually tried to save.
+    var tradesTouched = false;
+    String? required(String? v, String message) =>
+        (v?.trim().isEmpty ?? true) ? message : null;
 
     final done = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) {
-        return StatefulBuilder(builder: (context, setSheet) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 8,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(isEdit ? 'Edit staff' : 'Add staff',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(
-                    isEdit
-                        ? 'Update this staff member\'s details.'
-                        : 'They log in with this number — no signup needed.',
-                    style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(height: 16),
-                // Role is chosen only when adding; it can't be switched on edit.
-                if (!isEdit)
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(
-                          value: 'SECURITY_GUARD',
-                          label: Text('Guard'),
-                          icon: Icon(Icons.shield_outlined)),
-                      ButtonSegment(
-                          value: 'MAINTENANCE_STAFF',
-                          label: Text('Maintenance'),
-                          icon: Icon(Icons.engineering_outlined)),
-                    ],
-                    selected: {role},
-                    onSelectionChanged: (s) => setSheet(() => role = s.first),
-                  ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: nameController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'Name',
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: phoneController,
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(
-                    labelText: 'Mobile number',
-                    prefixIcon: Icon(Icons.phone_outlined),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: addressController,
-                  textCapitalization: TextCapitalization.words,
-                  minLines: 1,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Address',
-                    prefixIcon: Icon(Icons.home_outlined),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: joinedAt,
-                      firstDate: DateTime(2015),
-                      lastDate: DateTime.now(),
-                      helpText: 'Joining date',
-                    );
-                    if (picked != null) setSheet(() => joinedAt = picked);
-                  },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Joining date',
-                      prefixIcon: Icon(Icons.event_outlined),
-                    ),
-                    child: Text(fmtDate(joinedAt)),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: salaryController,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(
-                    labelText: 'Salary (optional)',
-                    hintText: 'Monthly salary',
-                    prefixIcon: Icon(Icons.payments_outlined),
-                  ),
-                ),
-                if (role == 'MAINTENANCE_STAFF') ...[
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('Trades',
-                        style: Theme.of(context).textTheme.labelLarge),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
+        return StatefulBuilder(
+          builder: (context, setSheet) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 8,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              // The validation messages and trade chips can outgrow a short
+              // screen, so the sheet scrolls instead of overflowing.
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      for (final t in kComplaintCategories)
-                        FilterChip(
-                          label: Text(t),
-                          selected: trades.contains(t),
-                          selectedColor: _accent.withValues(alpha: 0.18),
-                          onSelected: (on) => setSheet(() =>
-                              on ? trades.add(t) : trades.remove(t)),
+                      Text(
+                        isEdit ? 'Edit staff' : 'Add staff',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isEdit
+                            ? 'Update this staff member\'s details.'
+                            : 'They log in with this number — no signup needed.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'All fields are required — salary is optional.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Role is chosen only when adding; it can't be switched on edit.
+                      if (!isEdit)
+                        SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(
+                              value: 'SECURITY_GUARD',
+                              label: Text('Guard'),
+                              icon: Icon(Icons.shield_outlined),
+                            ),
+                            ButtonSegment(
+                              value: 'MAINTENANCE_STAFF',
+                              label: Text('Maintenance'),
+                              icon: Icon(Icons.engineering_outlined),
+                            ),
+                          ],
+                          selected: {role},
+                          onSelectionChanged: (s) =>
+                              setSheet(() => role = s.first),
+                        ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: nameController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Name',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        validator: (v) => required(v, 'Name is required'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: phoneController,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: const InputDecoration(
+                          labelText: 'Mobile number',
+                          prefixIcon: Icon(Icons.phone_outlined),
+                        ),
+                        validator: (v) {
+                          final phone = v?.trim() ?? '';
+                          if (phone.isEmpty) return 'Mobile number is required';
+                          // They log in with this number, so it has to be a real
+                          // 10-digit one — neither short nor padded.
+                          if (phone.length != 10) {
+                            return 'Mobile number must be exactly 10 digits';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: addressController,
+                        textCapitalization: TextCapitalization.words,
+                        minLines: 1,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: 'Address',
+                          prefixIcon: Icon(Icons.home_outlined),
+                        ),
+                        validator: (v) => required(v, 'Address is required'),
+                      ),
+                      const SizedBox(height: 12),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: joinedAt,
+                            firstDate: DateTime(2015),
+                            lastDate: DateTime.now(),
+                            helpText: 'Joining date',
+                          );
+                          if (picked != null) setSheet(() => joinedAt = picked);
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Joining date',
+                            prefixIcon: Icon(Icons.event_outlined),
+                          ),
+                          child: Text(fmtDate(joinedAt)),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: salaryController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: const InputDecoration(
+                          labelText: 'Salary (optional)',
+                          hintText: 'Monthly salary',
+                          prefixIcon: Icon(Icons.payments_outlined),
+                        ),
+                      ),
+                      if (role == 'MAINTENANCE_STAFF') ...[
+                        const SizedBox(height: 16),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Trades',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            for (final t in kComplaintCategories)
+                              FilterChip(
+                                label: Text(t),
+                                selected: trades.contains(t),
+                                selectedColor: _accent.withValues(alpha: 0.18),
+                                onSelected: (on) => setSheet(
+                                  () => on ? trades.add(t) : trades.remove(t),
+                                ),
+                              ),
+                          ],
+                        ),
+                        if (tradesTouched && trades.isEmpty) ...[
+                          const SizedBox(height: 6),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Pick at least one trade',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ],
+                      const SizedBox(height: 20),
+                      FilledButton(
+                        style: FilledButton.styleFrom(backgroundColor: _accent),
+                        onPressed: () {
+                          // A snackbar would surface behind the sheet — which read as
+                          // the button doing nothing — so problems are shown inline.
+                          final needsTrade =
+                              role == 'MAINTENANCE_STAFF' && trades.isEmpty;
+                          if (needsTrade) setSheet(() => tradesTouched = true);
+                          if (!formKey.currentState!.validate() || needsTrade) {
+                            return;
+                          }
+
+                          final name = nameController.text.trim();
+                          final phone = phoneController.text.trim();
+                          final address = addressController.text.trim();
+                          final salary = double.tryParse(
+                            salaryController.text.trim(),
+                          );
+                          final tradeList = role == 'MAINTENANCE_STAFF'
+                              ? trades.toList()
+                              : null;
+                          Navigator.of(context).pop(true);
+                          runMutation(
+                            () => isEdit
+                                ? _repo.update(
+                                    existing.id,
+                                    name: name,
+                                    phone: phone,
+                                    address: address.isEmpty ? null : address,
+                                    joinedAt: joinedAt,
+                                    salary: salary,
+                                    trades: tradeList,
+                                  )
+                                : _repo.create(
+                                    role: role,
+                                    name: name,
+                                    phone: phone,
+                                    address: address.isEmpty ? null : address,
+                                    joinedAt: joinedAt,
+                                    salary: salary,
+                                    trades: tradeList,
+                                  ),
+                          );
+                        },
+                        child: Text(isEdit ? 'Save' : 'Add staff'),
+                      ),
                     ],
                   ),
-                ],
-                const SizedBox(height: 20),
-                FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: _accent),
-                  onPressed: () {
-                    final name = nameController.text.trim();
-                    final phone = phoneController.text.trim();
-                    if (name.isEmpty) {
-                      _snack('Enter a name');
-                      return;
-                    }
-                    if (phone.length < 10) {
-                      _snack('Enter a valid mobile number');
-                      return;
-                    }
-                    final address = addressController.text.trim();
-                    final salary =
-                        double.tryParse(salaryController.text.trim());
-                    final tradeList =
-                        role == 'MAINTENANCE_STAFF' ? trades.toList() : null;
-                    Navigator.of(context).pop(true);
-                    runMutation(() => isEdit
-                        ? _repo.update(
-                            existing.id,
-                            name: name,
-                            phone: phone,
-                            address: address.isEmpty ? null : address,
-                            joinedAt: joinedAt,
-                            salary: salary,
-                            trades: tradeList,
-                          )
-                        : _repo.create(
-                            role: role,
-                            name: name,
-                            phone: phone,
-                            address: address.isEmpty ? null : address,
-                            joinedAt: joinedAt,
-                            salary: salary,
-                            trades: tradeList,
-                          ));
-                  },
-                  child: Text(isEdit ? 'Save' : 'Add staff'),
                 ),
-              ],
-            ),
-          );
-        });
+              ),
+            );
+          },
+        );
       },
     );
     if (done == true && mounted) setState(() {});
-  }
-
-  void _snack(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openDetail(Staff staff) async {
@@ -257,9 +330,9 @@ class _StaffScreenState extends State<StaffScreen> with LoadableState<StaffScree
             tooltip: 'Removed staff',
             icon: const Icon(Icons.person_off_outlined),
             onPressed: () async {
-              await Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => const StaffHistoryScreen(),
-              ));
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const StaffHistoryScreen()),
+              );
               refresh();
             },
           ),
@@ -284,7 +357,10 @@ class _StaffScreenState extends State<StaffScreen> with LoadableState<StaffScree
             _section('Security Guards', Icons.shield_outlined, guards),
             if (maintenance.isNotEmpty) const SizedBox(height: 20),
             _section(
-                'Maintenance Staff', Icons.engineering_outlined, maintenance),
+              'Maintenance Staff',
+              Icons.engineering_outlined,
+              maintenance,
+            ),
           ],
         );
       }),
@@ -299,14 +375,20 @@ class _StaffScreenState extends State<StaffScreen> with LoadableState<StaffScree
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.groups_outlined,
-                size: 64, color: _accent.withValues(alpha: 0.5)),
+            Icon(
+              Icons.groups_outlined,
+              size: 64,
+              color: _accent.withValues(alpha: 0.5),
+            ),
             const SizedBox(height: 16),
-            Text('No staff yet.\nAdd a guard or maintenance worker so they can '
-                'log in.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant)),
+            Text(
+              'No staff yet.\nAdd a guard or maintenance worker so they can '
+              'log in.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),
@@ -325,9 +407,12 @@ class _StaffScreenState extends State<StaffScreen> with LoadableState<StaffScree
           children: [
             Icon(icon, size: 18, color: _accent),
             const SizedBox(width: 8),
-            Text(title,
-                style: theme.textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -341,8 +426,11 @@ class _StaffScreenState extends State<StaffScreen> with LoadableState<StaffScree
 }
 
 class _StaffCard extends StatelessWidget {
-  const _StaffCard(
-      {required this.staff, required this.accent, required this.onTap});
+  const _StaffCard({
+    required this.staff,
+    required this.accent,
+    required this.onTap,
+  });
 
   final Staff staff;
   final Color accent;
@@ -351,8 +439,9 @@ class _StaffCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final initial =
-        staff.name.trim().isEmpty ? '?' : staff.name.trim()[0].toUpperCase();
+    final initial = staff.name.trim().isEmpty
+        ? '?'
+        : staff.name.trim()[0].toUpperCase();
     return Material(
       color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(14),
@@ -365,26 +454,34 @@ class _StaffCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 backgroundColor: accent.withValues(alpha: 0.14),
-                child: Text(initial,
-                    style:
-                        TextStyle(color: accent, fontWeight: FontWeight.bold)),
+                child: Text(
+                  initial,
+                  style: TextStyle(color: accent, fontWeight: FontWeight.bold),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(staff.name,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(
+                      staff.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 2),
-                    Text(staff.phone,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant)),
+                    Text(
+                      staff.phone,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right,
-                  color: theme.colorScheme.onSurfaceVariant),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ],
           ),
         ),

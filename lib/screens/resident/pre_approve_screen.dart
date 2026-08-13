@@ -23,13 +23,45 @@ class _PreApproveScreenState extends State<PreApproveScreen>
   Color get _accent => UserRole.resident.color;
 
   static const _purposes = ['Guest', 'Delivery', 'Cab', 'Service', 'Other'];
-  static const _validity = [
-    'Today, till 6 PM',
-    'Today, till 8 PM',
-    'Today, till 10 PM',
-    'Tomorrow, all day',
-    'This weekend',
+
+  static const _months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
+
+  /// "Today" / "Tomorrow" / "9 Aug" — whichever the guard reads fastest.
+  String _dayLabel(DateTime day) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final diff = DateTime(
+      day.year,
+      day.month,
+      day.day,
+    ).difference(today).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Tomorrow';
+    return '${day.day} ${_months[day.month - 1]}';
+  }
+
+  String _timeLabel(TimeOfDay t) {
+    final hour = t.hourOfPeriod == 0 ? 12 : t.hourOfPeriod;
+    final minute = t.minute.toString().padLeft(2, '0');
+    return '$hour:$minute ${t.period == DayPeriod.am ? 'AM' : 'PM'}';
+  }
+
+  /// What the guard sees, e.g. "Today, till 1:30 PM".
+  String _validLabel(DateTime day, TimeOfDay time) =>
+      '${_dayLabel(day)}, till ${_timeLabel(time)}';
 
   @override
   Future<void> load() async {
@@ -39,7 +71,10 @@ class _PreApproveScreenState extends State<PreApproveScreen>
   Future<void> _add() async {
     final nameController = TextEditingController();
     String purpose = _purposes.first;
-    String validLabel = _validity.first;
+    // Any date and any time — a visitor due at 1:30 PM is as normal as one at
+    // 6 PM, so nothing here is picked from a fixed list.
+    DateTime validDay = DateTime.now();
+    TimeOfDay validTime = const TimeOfDay(hour: 18, minute: 0);
 
     await showModalBottomSheet<bool>(
       context: context,
@@ -59,14 +94,17 @@ class _PreApproveScreenState extends State<PreApproveScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Pre-approve Visitor',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    'Pre-approve Visitor',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text('For Flat ${widget.flat} • the guard will see this',
-                      style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    'For Flat ${widget.flat} • the guard will see this',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: nameController,
@@ -89,19 +127,65 @@ class _PreApproveScreenState extends State<PreApproveScreen>
                         setModalState(() => purpose = v ?? purpose),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: validLabel,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Valid for',
-                      prefixIcon: Icon(Icons.schedule),
-                    ),
-                    items: [
-                      for (final v in _validity)
-                        DropdownMenuItem(value: v, child: Text(v)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () async {
+                            final now = DateTime.now();
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: validDay,
+                              firstDate: DateTime(now.year, now.month, now.day),
+                              lastDate: now.add(const Duration(days: 365)),
+                              helpText: 'Valid till date',
+                            );
+                            if (picked != null) {
+                              setModalState(() => validDay = picked);
+                            }
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Valid till date',
+                              prefixIcon: Icon(Icons.event_outlined),
+                            ),
+                            child: Text(_dayLabel(validDay)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () async {
+                            final picked = await showTimePicker(
+                              context: context,
+                              initialTime: validTime,
+                              helpText: 'Valid till time',
+                            );
+                            if (picked != null) {
+                              setModalState(() => validTime = picked);
+                            }
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Valid till time',
+                              prefixIcon: Icon(Icons.schedule),
+                            ),
+                            child: Text(_timeLabel(validTime)),
+                          ),
+                        ),
+                      ),
                     ],
-                    onChanged: (v) =>
-                        setModalState(() => validLabel = v ?? validLabel),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'The guard will see: '
+                    '${_validLabel(validDay, validTime)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   FilledButton(
@@ -109,17 +193,18 @@ class _PreApproveScreenState extends State<PreApproveScreen>
                     onPressed: () {
                       if (nameController.text.trim().isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Enter visitor name')),
+                          const SnackBar(content: Text('Enter visitor name')),
                         );
                         return;
                       }
                       Navigator.of(context).pop(true);
-                      runMutation(() => _repo.add(
-                            name: nameController.text.trim(),
-                            purpose: purpose,
-                            validLabel: validLabel,
-                          ));
+                      runMutation(
+                        () => _repo.add(
+                          name: nameController.text.trim(),
+                          purpose: purpose,
+                          validLabel: _validLabel(validDay, validTime),
+                        ),
+                      );
                     },
                     child: const Text('Pre-approve'),
                   ),
@@ -158,37 +243,45 @@ class _PreApproveScreenState extends State<PreApproveScreen>
       body: buildLoad(() {
         final list = _repo.forFlat(widget.flat);
         return list.isEmpty
-          ? const EmptyMessage(
-              icon: Icons.verified_user_outlined,
-              text: 'No pre-approved visitors.\nTap Approve to add one.')
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-              itemCount: list.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final p = list[index];
-                return Material(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  child: ListTile(
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                    leading: CircleAvatar(
-                      backgroundColor: _accent.withValues(alpha: 0.12),
-                      child: Text(p.initial,
+            ? const EmptyMessage(
+                icon: Icons.verified_user_outlined,
+                text: 'No pre-approved visitors.\nTap Approve to add one.',
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+                itemCount: list.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final p = list[index];
+                  return Material(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(14),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      leading: CircleAvatar(
+                        backgroundColor: _accent.withValues(alpha: 0.12),
+                        child: Text(
+                          p.initial,
                           style: TextStyle(
-                              color: _accent, fontWeight: FontWeight.bold)),
+                            color: _accent,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      title: Text(
+                        p.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text('${p.purpose} • ${p.validLabel}'),
+                      trailing: p.checkedIn
+                          ? _CheckedInChip(accent: _accent)
+                          : null,
                     ),
-                    title: Text(p.name,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('${p.purpose} • ${p.validLabel}'),
-                    trailing: p.checkedIn
-                        ? _CheckedInChip(accent: _accent)
-                        : null,
-                  ),
-                );
-              },
-            );
+                  );
+                },
+              );
       }),
     );
   }
@@ -206,9 +299,14 @@ class _CheckedInChip extends StatelessWidget {
         color: accent.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text('Arrived',
-          style: TextStyle(
-              color: accent, fontSize: 12, fontWeight: FontWeight.w600)),
+      child: Text(
+        'Arrived',
+        style: TextStyle(
+          color: accent,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

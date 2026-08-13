@@ -5,6 +5,7 @@ import '../../data/bills_repository.dart';
 import '../../data/complaints_repository.dart';
 import '../../data/notices_repository.dart';
 import '../../data/society_repository.dart';
+import '../../feature_flags.dart';
 import '../../models/user_role.dart';
 import '../loadable.dart';
 import '../user_profile_tab.dart';
@@ -30,6 +31,10 @@ class _ResidentHomeState extends State<ResidentHome>
 
   Color get _accent => UserRole.resident.color;
 
+  /// Bills are a platform feature the super admin can switch off; when it is
+  /// off the Dues and History tabs are not built at all.
+  bool get _payments => FeatureFlags.instance.payments;
+
   @override
   Future<void> load() async {
     final flatId = Session.instance.user?.flatId;
@@ -44,14 +49,19 @@ class _ResidentHomeState extends State<ResidentHome>
         }
       }
     }
-    await BillsRepository.instance.load(flatId: flatId);
-    await ComplaintsRepository.instance.load();
+    // A module switched off in the super-admin panel refuses its routes, so
+    // don't ask for data this session cannot use.
+    if (FeatureFlags.instance.payments) {
+      await BillsRepository.instance.load(flatId: flatId);
+    }
+    if (FeatureFlags.instance.complaints) {
+      await ComplaintsRepository.instance.load();
+    }
     await NoticesRepository.instance.load();
   }
 
   Future<void> _openThen(Widget screen) async {
-    await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => screen));
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
     refresh(); // reload summary counts on return
   }
 
@@ -71,8 +81,7 @@ class _ResidentHomeState extends State<ResidentHome>
                   IconButton(
                     tooltip: 'Notices',
                     icon: const Icon(Icons.campaign_outlined),
-                    onPressed: () =>
-                        _openThen(const ResidentNoticesScreen()),
+                    onPressed: () => _openThen(const ResidentNoticesScreen()),
                   ),
               ],
             )
@@ -86,23 +95,27 @@ class _ResidentHomeState extends State<ResidentHome>
               selectedIndex: _index,
               onDestinationSelected: (i) => setState(() => _index = i),
               indicatorColor: _accent.withValues(alpha: 0.16),
-              destinations: const [
-                NavigationDestination(
+              // Dues and History are the payments module; they come and go
+              // together with its flag, in step with [_buildTabs].
+              destinations: [
+                const NavigationDestination(
                   icon: Icon(Icons.home_outlined),
                   selectedIcon: Icon(Icons.home),
                   label: 'Home',
                 ),
-                NavigationDestination(
-                  icon: Icon(Icons.payments_outlined),
-                  selectedIcon: Icon(Icons.payments),
-                  label: 'Dues',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.history_outlined),
-                  selectedIcon: Icon(Icons.history),
-                  label: 'History',
-                ),
-                NavigationDestination(
+                if (_payments) ...[
+                  const NavigationDestination(
+                    icon: Icon(Icons.payments_outlined),
+                    selectedIcon: Icon(Icons.payments),
+                    label: 'Dues',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.history_outlined),
+                    selectedIcon: Icon(Icons.history),
+                    label: 'History',
+                  ),
+                ],
+                const NavigationDestination(
                   icon: Icon(Icons.account_circle_outlined),
                   selectedIcon: Icon(Icons.account_circle),
                   label: 'Profile',
@@ -119,11 +132,13 @@ class _ResidentHomeState extends State<ResidentHome>
       index: _index,
       children: [
         _buildBody(),
-        MyBillsScreen(flat: flat),
-        MyBillsHistoryScreen(
-          flat: flat,
-          onBack: () => setState(() => _index = 0),
-        ),
+        if (_payments) ...[
+          MyBillsScreen(flat: flat),
+          MyBillsHistoryScreen(
+            flat: flat,
+            onBack: () => setState(() => _index = 0),
+          ),
+        ],
         const UserProfileTab(),
       ],
     );
@@ -151,37 +166,47 @@ class _ResidentHomeState extends State<ResidentHome>
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
       children: [
-        Text(name.isEmpty ? 'Welcome home 👋' : 'Welcome home, $name 👋',
-            style: theme.textTheme.headlineSmall
-                ?.copyWith(fontWeight: FontWeight.bold)),
+        Text(
+          name.isEmpty ? 'Welcome home 👋' : 'Welcome home, $name 👋',
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         const SizedBox(height: 4),
-        Text('Flat $flat • ${society?.name ?? ''}',
-            style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant)),
+        Text(
+          'Flat $flat • ${society?.name ?? ''}',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 28),
         _SectionLabel('Quick actions', accent: _accent),
         const SizedBox(height: 10),
-        _ActionTile(
-          label: 'Raise a complaint',
-          subtitle: 'Report an issue in your flat',
-          icon: Icons.report_problem_outlined,
-          accent: _accent,
-          onTap: () => _openThen(MyComplaintsScreen(flat: flat)),
-        ),
-        _ActionTile(
-          label: 'Pre-approve a visitor',
-          subtitle: 'Let the gate expect your guest',
-          icon: Icons.person_add_alt_outlined,
-          accent: _accent,
-          onTap: () => _openThen(PreApproveScreen(flat: flat)),
-        ),
-        _ActionTile(
-          label: 'Book an amenity',
-          subtitle: 'Clubhouse, gym, pool and more',
-          icon: Icons.event_available_outlined,
-          accent: _accent,
-          onTap: () => _openThen(AmenitiesScreen(flat: flat)),
-        ),
+        // Each action belongs to a module the super admin can switch off.
+        if (FeatureFlags.instance.complaints)
+          _ActionTile(
+            label: 'Raise a complaint',
+            subtitle: 'Report an issue in your flat',
+            icon: Icons.report_problem_outlined,
+            accent: _accent,
+            onTap: () => _openThen(MyComplaintsScreen(flat: flat)),
+          ),
+        if (FeatureFlags.instance.visitors)
+          _ActionTile(
+            label: 'Pre-approve a visitor',
+            subtitle: 'Let the gate expect your guest',
+            icon: Icons.person_add_alt_outlined,
+            accent: _accent,
+            onTap: () => _openThen(PreApproveScreen(flat: flat)),
+          ),
+        if (FeatureFlags.instance.amenities)
+          _ActionTile(
+            label: 'Book an amenity',
+            subtitle: 'Clubhouse, gym, pool and more',
+            icon: Icons.event_available_outlined,
+            accent: _accent,
+            onTap: () => _openThen(AmenitiesScreen(flat: flat)),
+          ),
       ],
     );
   }
@@ -207,7 +232,6 @@ class _SectionLabel extends StatelessWidget {
     );
   }
 }
-
 
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
@@ -259,18 +283,27 @@ class _ActionTile extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(label,
-                            style: theme.textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w600)),
+                        Text(
+                          label,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text(subtitle,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant)),
+                        Text(
+                          subtitle,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  Icon(Icons.chevron_right,
-                      size: 20, color: theme.colorScheme.outline),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 20,
+                    color: theme.colorScheme.outline,
+                  ),
                 ],
               ),
             ),

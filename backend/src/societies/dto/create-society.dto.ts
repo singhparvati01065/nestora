@@ -27,6 +27,14 @@ export class CreateSocietyDto {
   @IsString()
   address: string;
 
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
   /// False for a society that is one building with no towers. Its flats are
   /// numbered 101, 102 instead of A101, A102, and it must send exactly one
   /// entry in [towers] — the building itself.

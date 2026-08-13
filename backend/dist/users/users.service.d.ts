@@ -6,22 +6,22 @@ export declare class UsersService {
     constructor(prisma: PrismaService);
     updateMe(userId: string, dto: UpdateMeDto): Promise<{
         id: string;
-        phone: string;
-        email: string | null;
-        firebaseUid: string | null;
+        updatedAt: Date;
         name: string;
-        photoUrl: string | null;
-        role: import(".prisma/client").$Enums.Role;
         societyId: string | null;
         flatId: string | null;
+        createdAt: Date;
+        phone: string;
+        role: import(".prisma/client").$Enums.Role;
         staffLabel: string | null;
-        banned: boolean;
+        trades: string[];
         address: string | null;
+        email: string | null;
+        firebaseUid: string | null;
+        photoUrl: string | null;
+        banned: boolean;
         joinedAt: Date | null;
         salary: Prisma.Decimal | null;
         archivedAt: Date | null;
-        trades: string[];
-        createdAt: Date;
-        updatedAt: Date;
     }>;
 }

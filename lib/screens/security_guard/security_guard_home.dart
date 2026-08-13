@@ -5,9 +5,11 @@ import '../../data/deliveries_repository.dart';
 import '../../data/pre_approved_repository.dart';
 import '../../data/society_repository.dart';
 import '../../data/visitors_repository.dart';
+import '../../feature_flags.dart';
 import '../../models/pre_approved_visitor.dart';
 import '../../models/society.dart';
 import '../../models/user_role.dart';
+import '../feature_off_screen.dart';
 import '../society_admin/admin_widgets.dart';
 import '../user_profile_tab.dart';
 
@@ -55,6 +57,11 @@ class _SecurityGuardHomeState extends State<SecurityGuardHome> {
   }
 
   Future<void> _load() async {
+    // The gate is the visitors module; with it off there is nothing to fetch.
+    if (!FeatureFlags.instance.visitors) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     try {
       await SocietyRepository.instance.load();
       await _visitors.load();
@@ -73,15 +80,16 @@ class _SecurityGuardHomeState extends State<SecurityGuardHome> {
       if (mounted) setState(() {});
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ApiClient.messageFor(e))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(ApiClient.messageFor(e))));
       }
     }
   }
 
   Future<void> _newVisitor({PreApprovedVisitor? from}) async {
-    final flats = SocietyRepository.instance.society?.allFlats ?? const <Flat>[];
+    final flats =
+        SocietyRepository.instance.society?.allFlats ?? const <Flat>[];
     final nameController = TextEditingController(text: from?.name ?? '');
     final phoneController = TextEditingController();
     final flatController = TextEditingController(text: from?.flatNumber ?? '');
@@ -117,11 +125,12 @@ class _SecurityGuardHomeState extends State<SecurityGuardHome> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('New Visitor Entry',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    'New Visitor Entry',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: nameController,
@@ -147,7 +156,9 @@ class _SecurityGuardHomeState extends State<SecurityGuardHome> {
                                 items: [
                                   for (final f in flats)
                                     DropdownMenuItem(
-                                        value: f.id, child: Text(f.number)),
+                                      value: f.id,
+                                      child: Text(f.number),
+                                    ),
                                 ],
                                 onChanged: (v) =>
                                     setModalState(() => selectedFlat = v),
@@ -167,8 +178,9 @@ class _SecurityGuardHomeState extends State<SecurityGuardHome> {
                         child: DropdownButtonFormField<String>(
                           initialValue: purpose,
                           isExpanded: true,
-                          decoration:
-                              const InputDecoration(labelText: 'Purpose'),
+                          decoration: const InputDecoration(
+                            labelText: 'Purpose',
+                          ),
                           items: [
                             for (final p in _purposes)
                               DropdownMenuItem(value: p, child: Text(p)),
@@ -209,7 +221,8 @@ class _SecurityGuardHomeState extends State<SecurityGuardHome> {
                           (flats.isNotEmpty && flatId == null)) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                              content: Text('Enter name and select flat')),
+                            content: Text('Enter name and select flat'),
+                          ),
                         );
                         return;
                       }
@@ -225,12 +238,9 @@ class _SecurityGuardHomeState extends State<SecurityGuardHome> {
                             phone: phoneController.text.trim(),
                             flatId: flatId,
                             purpose: purpose,
-                            vehicleNo:
-                                vehicleController.text.trim().isEmpty
-                                    ? null
-                                    : vehicleController.text
-                                        .trim()
-                                        .toUpperCase(),
+                            vehicleNo: vehicleController.text.trim().isEmpty
+                                ? null
+                                : vehicleController.text.trim().toUpperCase(),
                           );
                         }
                       });
@@ -250,7 +260,8 @@ class _SecurityGuardHomeState extends State<SecurityGuardHome> {
   }
 
   Future<void> _newDelivery() async {
-    final flats = SocietyRepository.instance.society?.allFlats ?? const <Flat>[];
+    final flats =
+        SocietyRepository.instance.society?.allFlats ?? const <Flat>[];
     final otherCourierController = TextEditingController();
     String courier = _couriers.first;
     String? selectedFlat;
@@ -273,11 +284,12 @@ class _SecurityGuardHomeState extends State<SecurityGuardHome> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Log Delivery',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    'Log Delivery',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     initialValue: courier,
@@ -330,13 +342,18 @@ class _SecurityGuardHomeState extends State<SecurityGuardHome> {
                       if (courierName.isEmpty || flatId == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                              content: Text('Select courier and flat')),
+                            content: Text('Select courier and flat'),
+                          ),
                         );
                         return;
                       }
                       Navigator.of(context).pop(true);
-                      _mutate(() => _deliveries.add(
-                          courier: courierName, flatId: flatId));
+                      _mutate(
+                        () => _deliveries.add(
+                          courier: courierName,
+                          flatId: flatId,
+                        ),
+                      );
                     },
                     child: const Text('Add Parcel'),
                   ),
@@ -354,6 +371,15 @@ class _SecurityGuardHomeState extends State<SecurityGuardHome> {
 
   @override
   Widget build(BuildContext context) {
+    // The guard's entire console is the gate, so switching the module off
+    // leaves nothing to show behind it.
+    if (!FeatureFlags.instance.visitors) {
+      return FeatureOffScreen(
+        title: 'Security · Main Gate',
+        feature: 'Visitor management',
+        accent: _accent,
+      );
+    }
     final index = _index;
     // The Profile tab is a full screen with its own app bar, so the gate's
     // app bar, stat strip and FAB all step aside for it.
@@ -427,42 +453,45 @@ class _SecurityGuardHomeState extends State<SecurityGuardHome> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : onProfile
-              ? const UserProfileTab()
-              : Column(
-                  children: [
-                    _StatStrip(
-                      inside: _visitors.insideCount,
-                      today: _visitors.todayCount,
-                      accent: _accent,
-                      onTap: (filter) => setState(() {
-                        _visitorFilter = filter;
-                        _index = 0;
-                      }),
-                    ),
-                    Expanded(
-                      child: IndexedStack(
-                        index: _index,
-                        children: [
-                          _VisitorsTab(
-                              accent: _accent,
-                              repo: _visitors,
-                              filter: _visitorFilter,
-                              onClearFilter: () =>
-                                  setState(() => _visitorFilter = 'all'),
-                              onAction: _mutate),
-                          _ExpectedTab(
-                              accent: _accent,
-                              repo: _preApproved,
-                              onCheckIn: (p) => _newVisitor(from: p)),
-                          _DeliveriesTab(
-                              accent: _accent,
-                              repo: _deliveries,
-                              onAction: _mutate),
-                        ],
-                      ),
-                    ),
-                  ],
+          ? const UserProfileTab()
+          : Column(
+              children: [
+                _StatStrip(
+                  inside: _visitors.insideCount,
+                  today: _visitors.todayCount,
+                  accent: _accent,
+                  onTap: (filter) => setState(() {
+                    _visitorFilter = filter;
+                    _index = 0;
+                  }),
                 ),
+                Expanded(
+                  child: IndexedStack(
+                    index: _index,
+                    children: [
+                      _VisitorsTab(
+                        accent: _accent,
+                        repo: _visitors,
+                        filter: _visitorFilter,
+                        onClearFilter: () =>
+                            setState(() => _visitorFilter = 'all'),
+                        onAction: _mutate,
+                      ),
+                      _ExpectedTab(
+                        accent: _accent,
+                        repo: _preApproved,
+                        onCheckIn: (p) => _newVisitor(from: p),
+                      ),
+                      _DeliveriesTab(
+                        accent: _accent,
+                        repo: _deliveries,
+                        onAction: _mutate,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
@@ -488,11 +517,19 @@ class _StatStrip extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Row(
         children: [
-          _stat('Inside now', '$inside', Icons.people_alt_outlined,
-              () => onTap('inside')),
+          _stat(
+            'Inside now',
+            '$inside',
+            Icons.people_alt_outlined,
+            () => onTap('inside'),
+          ),
           const SizedBox(width: 12),
-          _stat("Today's visitors", '$today', Icons.today_outlined,
-              () => onTap('today')),
+          _stat(
+            "Today's visitors",
+            '$today',
+            Icons.today_outlined,
+            () => onTap('today'),
+          ),
         ],
       ),
     );
@@ -500,32 +537,43 @@ class _StatStrip extends StatelessWidget {
 
   Widget _stat(String label, String value, IconData icon, VoidCallback onTap) {
     return Expanded(
-      child: Builder(builder: (context) {
-        final theme = Theme.of(context);
-        return Material(
-          color: accent.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(16),
-          child: InkWell(
-            onTap: onTap,
+      child: Builder(
+        builder: (context) {
+          final theme = Theme.of(context);
+          return Material(
+            color: accent.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-              child: Column(
-                children: [
-                  Icon(icon, color: accent, size: 22),
-                  const SizedBox(height: 6),
-                  Text(value,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 8,
+                ),
+                child: Column(
+                  children: [
+                    Icon(icon, color: accent, size: 22),
+                    const SizedBox(height: 6),
+                    Text(
+                      value,
                       style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold, color: accent)),
-                  Text(label,
+                        fontWeight: FontWeight.bold,
+                        color: accent,
+                      ),
+                    ),
+                    Text(
+                      label,
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall),
-                ],
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      }),
+          );
+        },
+      ),
     );
   }
 }
@@ -552,8 +600,9 @@ class _VisitorsTab extends StatelessWidget {
     final all = repo.all;
     if (all.isEmpty) {
       return const EmptyMessage(
-          icon: Icons.how_to_reg_outlined,
-          text: 'No visitors yet.\nTap New Entry to log one.');
+        icon: Icons.how_to_reg_outlined,
+        text: 'No visitors yet.\nTap New Entry to log one.',
+      );
     }
     final visitors = switch (filter) {
       'inside' => all.where((v) => v.inside).toList(),
@@ -567,10 +616,11 @@ class _VisitorsTab extends StatelessWidget {
           ?banner,
           Expanded(
             child: EmptyMessage(
-                icon: Icons.filter_alt_off_outlined,
-                text: filter == 'inside'
-                    ? 'No visitors inside right now.'
-                    : 'No visitors today yet.'),
+              icon: Icons.filter_alt_off_outlined,
+              text: filter == 'inside'
+                  ? 'No visitors inside right now.'
+                  : 'No visitors today yet.',
+            ),
           ),
         ],
       );
@@ -590,30 +640,36 @@ class _VisitorsTab extends StatelessWidget {
               children: [
                 CircleAvatar(
                   backgroundColor: accent.withValues(alpha: 0.12),
-                  child: Text(v.initial,
-                      style: TextStyle(
-                          color: accent, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    v.initial,
+                    style: TextStyle(
+                      color: accent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(v.name,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(
+                        v.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       const SizedBox(height: 2),
-                      Text('Flat ${v.flatNumber} • ${v.purpose}',
-                          style: Theme.of(context).textTheme.bodySmall),
+                      Text(
+                        'Flat ${v.flatNumber} • ${v.purpose}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                       const SizedBox(height: 2),
                       Text(
                         v.inside
                             ? 'In: ${v.inTime}'
                             : 'In: ${v.inTime}  •  Out: ${v.outTime}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -638,7 +694,12 @@ class _VisitorsTab extends StatelessWidget {
       },
     );
     if (banner == null) return list;
-    return Column(children: [banner, Expanded(child: list)]);
+    return Column(
+      children: [
+        banner,
+        Expanded(child: list),
+      ],
+    );
   }
 
   Widget _filterBanner(BuildContext context) {
@@ -656,14 +717,15 @@ class _VisitorsTab extends StatelessWidget {
           Icon(Icons.filter_alt_outlined, size: 18, color: accent),
           const SizedBox(width: 8),
           Expanded(
-            child: Text('Showing: $label',
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: accent, fontWeight: FontWeight.w600)),
+            child: Text(
+              'Showing: $label',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: accent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
-          TextButton(
-            onPressed: onClearFilter,
-            child: const Text('Show all'),
-          ),
+          TextButton(onPressed: onClearFilter, child: const Text('Show all')),
         ],
       ),
     );
@@ -681,9 +743,14 @@ class _ExitedChip extends StatelessWidget {
         color: Colors.grey.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Text('Exited',
-          style: TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+      child: const Text(
+        'Exited',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey,
+        ),
+      ),
     );
   }
 }
@@ -704,8 +771,9 @@ class _ExpectedTab extends StatelessWidget {
     final list = repo.all;
     if (list.isEmpty) {
       return const EmptyMessage(
-          icon: Icons.verified_user_outlined,
-          text: 'No expected visitors.\nResidents can pre-approve guests.');
+        icon: Icons.verified_user_outlined,
+        text: 'No expected visitors.\nResidents can pre-approve guests.',
+      );
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -722,32 +790,43 @@ class _ExpectedTab extends StatelessWidget {
               children: [
                 CircleAvatar(
                   backgroundColor: accent.withValues(alpha: 0.12),
-                  child: Text(p.initial,
-                      style: TextStyle(
-                          color: accent, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    p.initial,
+                    style: TextStyle(
+                      color: accent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(p.name,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(
+                        p.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       const SizedBox(height: 2),
-                      Text('Flat ${p.flatNumber} • ${p.purpose}',
-                          style: Theme.of(context).textTheme.bodySmall),
+                      Text(
+                        'Flat ${p.flatNumber} • ${p.purpose}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          Icon(Icons.schedule,
-                              size: 13,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant),
+                          Icon(
+                            Icons.schedule,
+                            size: 13,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
                           const SizedBox(width: 4),
-                          Text(p.validLabel,
-                              style: Theme.of(context).textTheme.bodySmall),
+                          Text(
+                            p.validLabel,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
                         ],
                       ),
                     ],
@@ -756,16 +835,21 @@ class _ExpectedTab extends StatelessWidget {
                 if (p.checkedIn)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF2E7D32).withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text('Checked in',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF2E7D32))),
+                    child: const Text(
+                      'Checked in',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF2E7D32),
+                      ),
+                    ),
                   )
                 else
                   FilledButton(
@@ -802,8 +886,9 @@ class _DeliveriesTab extends StatelessWidget {
     final list = repo.all;
     if (list.isEmpty) {
       return const EmptyMessage(
-          icon: Icons.inventory_2_outlined,
-          text: 'No parcels held.\nTap Add Parcel to log one.');
+        icon: Icons.inventory_2_outlined,
+        text: 'No parcels held.\nTap Add Parcel to log one.',
+      );
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
@@ -816,7 +901,8 @@ class _DeliveriesTab extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           child: ListTile(
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
+              borderRadius: BorderRadius.circular(14),
+            ),
             leading: CircleAvatar(
               backgroundColor: d.collected
                   ? const Color(0xFF2E7D32).withValues(alpha: 0.12)
@@ -826,8 +912,10 @@ class _DeliveriesTab extends StatelessWidget {
                 color: d.collected ? const Color(0xFF2E7D32) : accent,
               ),
             ),
-            title: Text('${d.courier} → Flat ${d.flatNumber}',
-                style: const TextStyle(fontWeight: FontWeight.w600)),
+            title: Text(
+              '${d.courier} → Flat ${d.flatNumber}',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
             subtitle: Text('Received ${d.inTime}'),
             trailing: TextButton(
               onPressed: () => onAction(() => repo.toggleCollected(d)),

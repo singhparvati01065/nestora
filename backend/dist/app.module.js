@@ -23,7 +23,11 @@ const pre_approved_module_1 = require("./gate/pre-approved.module");
 const visitors_module_1 = require("./gate/visitors.module");
 const notices_module_1 = require("./notices/notices.module");
 const notifications_module_1 = require("./notifications/notifications.module");
+const account_status_guard_1 = require("./platform/account-status.guard");
+const feature_guard_1 = require("./platform/feature.guard");
+const platform_module_1 = require("./platform/platform.module");
 const prisma_module_1 = require("./prisma/prisma.module");
+const push_module_1 = require("./push/push.module");
 const residents_module_1 = require("./residents/residents.module");
 const societies_module_1 = require("./societies/societies.module");
 const staff_module_1 = require("./staff/staff.module");
@@ -38,6 +42,8 @@ exports.AppModule = AppModule = __decorate([
         imports: [
             config_1.ConfigModule.forRoot({ isGlobal: true }),
             prisma_module_1.PrismaModule,
+            platform_module_1.PlatformModule,
+            push_module_1.PushModule,
             auth_module_1.AuthModule,
             societies_module_1.SocietiesModule,
             uploads_module_1.UploadsModule,
@@ -59,6 +65,8 @@ exports.AppModule = AppModule = __decorate([
         providers: [
             { provide: core_1.APP_GUARD, useClass: jwt_auth_guard_1.JwtAuthGuard },
             { provide: core_1.APP_GUARD, useClass: roles_guard_1.RolesGuard },
+            { provide: core_1.APP_GUARD, useClass: account_status_guard_1.AccountStatusGuard },
+            { provide: core_1.APP_GUARD, useClass: feature_guard_1.FeatureGuard },
         ],
     })
 ], AppModule);

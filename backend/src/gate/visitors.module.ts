@@ -13,6 +13,7 @@ import { AuthUser, CurrentUser } from '../auth/decorators/current-user.decorator
 import { Roles } from '../auth/decorators/roles.decorator';
 import { resolveSocietyId } from '../common/society-scope';
 import { PrismaService } from '../prisma/prisma.service';
+import { RequiresFeature } from '../platform/feature.decorator';
 
 class CreateVisitorDto {
   @IsString() name: string;
@@ -22,6 +23,7 @@ class CreateVisitorDto {
   @IsOptional() @IsString() vehicleNo?: string;
 }
 
+@RequiresFeature('visitors')
 @Controller('visitors')
 class VisitorsController {
   constructor(private prisma: PrismaService) {}

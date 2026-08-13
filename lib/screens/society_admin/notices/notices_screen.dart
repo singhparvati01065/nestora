@@ -4,6 +4,7 @@ import '../../../data/notices_repository.dart';
 import '../../../models/notice.dart';
 import '../../../models/user_role.dart';
 import '../../loadable.dart';
+import '../../notice_card.dart';
 import '../admin_widgets.dart';
 
 class NoticesScreen extends StatefulWidget {
@@ -45,11 +46,12 @@ class _NoticesScreenState extends State<NoticesScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('New Notice',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    'New Notice',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: titleController,
@@ -87,16 +89,19 @@ class _NoticesScreenState extends State<NoticesScreen>
                           bodyController.text.trim().isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                              content: Text('Enter a title and message')),
+                            content: Text('Enter a title and message'),
+                          ),
                         );
                         return;
                       }
                       Navigator.of(context).pop(true);
-                      runMutation(() => _repo.add(
-                            title: titleController.text.trim(),
-                            body: bodyController.text.trim(),
-                            pinned: pinned,
-                          ));
+                      runMutation(
+                        () => _repo.add(
+                          title: titleController.text.trim(),
+                          body: bodyController.text.trim(),
+                          pinned: pinned,
+                        ),
+                      );
                     },
                     child: const Text('Post Notice'),
                   ),
@@ -127,52 +132,67 @@ class _NoticesScreenState extends State<NoticesScreen>
               Row(
                 children: [
                   Expanded(
-                    child: Text(notice.title,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(fontWeight: FontWeight.bold)),
+                    child: Text(
+                      notice.title,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   if (notice.pinned)
                     Icon(Icons.push_pin, size: 18, color: _accent),
                 ],
               ),
               const SizedBox(height: 4),
-              Text(notice.dateLabel,
-                  style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 16),
-              Text(notice.body,
-                  style: Theme.of(context).textTheme.bodyLarge),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: Icon(notice.pinned
-                          ? Icons.push_pin_outlined
-                          : Icons.push_pin),
-                      label: Text(notice.pinned ? 'Unpin' : 'Pin'),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        runMutation(() => _repo.togglePinned(notice));
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red),
-                      icon: const Icon(Icons.delete_outline),
-                      label: const Text('Delete'),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        runMutation(() => _repo.remove(notice));
-                      },
-                    ),
-                  ),
-                ],
+              Text(
+                notice.dateLabel,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
+              const SizedBox(height: 16),
+              Text(notice.body, style: Theme.of(context).textTheme.bodyLarge),
+              const SizedBox(height: 20),
+              // A Nestora announcement is not this society's to pin or remove,
+              // so the actions are not offered at all (the API refuses too).
+              if (notice.fromPlatform)
+                Text(
+                  'Sent by Nestora — it cannot be pinned or removed here.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                )
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: Icon(
+                          notice.pinned
+                              ? Icons.push_pin_outlined
+                              : Icons.push_pin,
+                        ),
+                        label: Text(notice.pinned ? 'Unpin' : 'Pin'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          runMutation(() => _repo.togglePinned(notice));
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Delete'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          runMutation(() => _repo.remove(notice));
+                        },
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
         );
@@ -201,61 +221,23 @@ class _NoticesScreenState extends State<NoticesScreen>
       body: buildLoad(() {
         final notices = _repo.all;
         return notices.isEmpty
-          ? const EmptyMessage(
-              icon: Icons.campaign_outlined,
-              text: 'No notices yet.\nTap Post to make an announcement.')
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-              itemCount: notices.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final n = notices[index];
-                return Material(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
+            ? const EmptyMessage(
+                icon: Icons.campaign_outlined,
+                text: 'No notices yet.\nTap Post to make an announcement.',
+              )
+: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+                itemCount: notices.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final n = notices[index];
+                  return NoticeCard(
+                    notice: n,
+                    accent: _accent,
                     onTap: () => _openNotice(n),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              if (n.pinned) ...[
-                                Icon(Icons.push_pin, size: 16, color: _accent),
-                                const SizedBox(width: 6),
-                              ],
-                              Expanded(
-                                child: Text(n.title,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 16)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(n.body,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant)),
-                          const SizedBox(height: 8),
-                          Text(n.dateLabel,
-                              style: Theme.of(context).textTheme.bodySmall),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            );
+                  );
+                },
+              );
       }),
     );
   }

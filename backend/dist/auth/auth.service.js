@@ -32,7 +32,19 @@ let AuthService = AuthService_1 = class AuthService {
     tokenFor(user) {
         return this.jwt.sign(user);
     }
-    issueSession(authUser) {
+    async assertSocietyActive(societyId) {
+        if (!societyId)
+            return;
+        const society = await this.prisma.society.findUnique({
+            where: { id: societyId },
+            select: { suspended: true },
+        });
+        if (society?.suspended) {
+            throw new common_1.ForbiddenException('This society has been suspended. Please contact Nestora support.');
+        }
+    }
+    async issueSession(authUser) {
+        await this.assertSocietyActive(authUser.societyId);
         void this.prisma.loginEvent
             .create({ data: { userId: authUser.sub, role: authUser.role } })
             .catch(() => null);
@@ -86,6 +98,12 @@ let AuthService = AuthService_1 = class AuthService {
         const ok = await bcrypt.compare(dto.password, user.password);
         if (!ok)
             throw new common_1.UnauthorizedException('Invalid credentials');
+        if (user.banned) {
+            throw new common_1.ForbiddenException('This account has been blocked.');
+        }
+        if (user.archivedAt) {
+            throw new common_1.ForbiddenException('This account has been removed. Ask your society admin.');
+        }
         const authUser = this.toAuthUser(user);
         return this.issueSession(authUser);
     }

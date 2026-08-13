@@ -1,15 +1,17 @@
-import 'dart:io' show File, Platform;
+import 'dart:io' show File;
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 
 import 'session.dart';
 
 /// Thin wrapper around Dio configured for the Nestora backend.
 ///
 /// Base URL notes:
-/// - Android emulator reaches the host machine at `10.0.2.2`, not `localhost`.
-/// - iOS simulator / desktop use `localhost`.
+/// - Defaults to the production EC2 box, so builds installed on a real phone
+///   reach a server that actually exists. `10.0.2.2`/`localhost` only resolve
+///   from an emulator or the host machine, never from a physical device.
+/// - To run against a local backend, override at build time:
+///   `flutter run --dart-define=API_ORIGIN=http://10.0.2.2:3000`
 class ApiClient {
   ApiClient._() {
     _dio = Dio(
@@ -37,13 +39,14 @@ class ApiClient {
 
   late final Dio _dio;
 
-  static String get _baseUrl {
-    const port = 3000;
-    if (!kIsWeb && Platform.isAndroid) {
-      return 'http://10.0.2.2:$port/api';
-    }
-    return 'http://localhost:$port/api';
-  }
+  /// Origin the API hangs off, overridable per build. nginx on the prod box
+  /// proxies `/` to the backend on :3000, so no port is needed there.
+  static const String _origin = String.fromEnvironment(
+    'API_ORIGIN',
+    defaultValue: 'http://ec2-44-201-139-203.compute-1.amazonaws.com',
+  );
+
+  static String get _baseUrl => '$_origin/api';
 
   /// Turns a stored `/uploads/x.jpg` into a URL the app can load.
   ///
@@ -81,8 +84,10 @@ class ApiClient {
     return res.data;
   }
 
-  Future<dynamic> delete(String path) async {
-    final res = await _dio.delete(path);
+  /// [body] is for the rare delete that identifies its target by payload
+  /// rather than by path — dropping a device token, for instance.
+  Future<dynamic> delete(String path, {Object? body}) async {
+    final res = await _dio.delete(path, data: body);
     return res.data;
   }
 

@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   Get,
   Module,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -17,6 +18,8 @@ import { AuthUser, CurrentUser } from '../auth/decorators/current-user.decorator
 import { Roles } from '../auth/decorators/roles.decorator';
 import { resolveSocietyId } from '../common/society-scope';
 import { PrismaService } from '../prisma/prisma.service';
+import { PushService } from '../push/push.service';
+import { RequiresFeature } from '../platform/feature.decorator';
 import {
   dueDateForPeriod,
   ensureRecurringBills,
@@ -48,9 +51,13 @@ class UpdateBillDto {
   @IsOptional() @IsString() title?: string;
 }
 
+@RequiresFeature('online_payments')
 @Controller('bills')
 class BillsController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private push: PushService,
+  ) {}
 
   /// Admin: all bills in the society, with a collected/pending summary.
   /// Optionally filter by ?flatId= (also how a resident reads their own).
@@ -98,6 +105,26 @@ class BillsController {
   ///    its own. Existing unpaid bills of that kind are re-dated to the picked
   ///    day so changing the date shows up on bills already made.
   ///  - OTHER: a one-off custom charge (named by `title`) for that month only.
+  /// Resolves a bill this user is actually allowed to touch: a resident only
+  /// within their own flat, anyone else only within their own society. A bill
+  /// outside that reads as missing rather than forbidden, so an id from another
+  /// society reveals nothing.
+  private async ownBill(user: AuthUser, id: string) {
+    const where: Prisma.BillWhereInput = { id, deletedAt: null };
+    if (user.role !== Role.SUPER_ADMIN) {
+      where.societyId = resolveSocietyId(user);
+      if (user.role === Role.RESIDENT) {
+        if (!user.flatId) {
+          throw new ForbiddenException('No flat linked to this account');
+        }
+        where.flatId = user.flatId;
+      }
+    }
+    const bill = await this.prisma.bill.findFirst({ where, select: { id: true } });
+    if (!bill) throw new NotFoundException('Bill not found');
+    return bill;
+  }
+
   @Roles(Role.SOCIETY_ADMIN, Role.SUPER_ADMIN)
   @Post('generate')
   async generate(
@@ -205,8 +232,10 @@ class BillsController {
     return { created: after - before, period: monthLabelOf(start) };
   }
 
+  @Roles(Role.RESIDENT, Role.SOCIETY_ADMIN, Role.SUPER_ADMIN)
   @Patch(':id/pay')
-  pay(@Param('id') id: string) {
+  async pay(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.ownBill(user, id);
     return this.prisma.bill.update({
       where: { id },
       data: { paid: true, paidAt: new Date() },
@@ -216,13 +245,25 @@ class BillsController {
   /// Pays several bills as one payment: they all get the SAME paidAt so the
   /// resident's history shows them together as a single transaction. Also drops
   /// a notification for the admin that the payment came in.
+  @Roles(Role.RESIDENT, Role.SOCIETY_ADMIN, Role.SUPER_ADMIN)
   @Post('pay')
   async payMany(@CurrentUser() user: AuthUser, @Body() dto: PayBillsDto) {
     const paidAt = new Date();
-    const where =
-      user.role === Role.RESIDENT && user.flatId
-        ? { id: { in: dto.ids }, flatId: user.flatId }
-        : { id: { in: dto.ids } };
+    // Same rule as the single-bill routes: ids outside the caller's flat /
+    // society simply do not match, so they are silently left alone.
+    const where: Prisma.BillWhereInput = {
+      id: { in: dto.ids },
+      deletedAt: null,
+    };
+    if (user.role !== Role.SUPER_ADMIN) {
+      where.societyId = resolveSocietyId(user);
+      if (user.role === Role.RESIDENT) {
+        if (!user.flatId) {
+          throw new ForbiddenException('No flat linked to this account');
+        }
+        where.flatId = user.flatId;
+      }
+    }
     const res = await this.prisma.bill.updateMany({
       where,
       data: { paid: true, paidAt },
@@ -246,15 +287,24 @@ class BillsController {
         const who = user.name
           ? `${user.name} (Flat ${flatNumber})`
           : `Flat ${flatNumber}`;
+        const body =
+          `${who} paid ₹${total.toFixed(0)} for ${bills.length} ` +
+          `bill${bills.length === 1 ? '' : 's'}.`;
         await this.prisma.appNotification.create({
           data: {
             societyId: bills[0].societyId,
             title: 'Payment received',
-            body:
-              `${who} paid ₹${total.toFixed(0)} for ${bills.length} ` +
-              `bill${bills.length === 1 ? '' : 's'}.`,
+            body,
           },
         });
+        // The bell entry above is what the admin sees inside the app; this is
+        // what reaches them when it is closed. Fire-and-forget: a push that
+        // fails must not fail the payment.
+        void this.push.sendToSocietyAdmins(
+          [bills[0].societyId],
+          'Payment received',
+          body,
+        );
       }
     }
     return { paid: res.count, paidAt };
@@ -325,7 +375,8 @@ class BillsController {
 
   @Roles(Role.SOCIETY_ADMIN, Role.SUPER_ADMIN)
   @Patch(':id/unpay')
-  unpay(@Param('id') id: string) {
+  async unpay(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.ownBill(user, id);
     return this.prisma.bill.update({
       where: { id },
       data: { paid: false, paidAt: null },
@@ -336,7 +387,8 @@ class BillsController {
   /// the recurring backfill's dedup won't simply recreate it on the next read.
   @Roles(Role.SOCIETY_ADMIN, Role.SUPER_ADMIN)
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  async remove(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    await this.ownBill(user, id);
     return this.prisma.bill.update({
       where: { id },
       data: { deletedAt: new Date() },

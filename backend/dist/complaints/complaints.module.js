@@ -20,6 +20,7 @@ const current_user_decorator_1 = require("../auth/decorators/current-user.decora
 const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const society_scope_1 = require("../common/society-scope");
 const prisma_service_1 = require("../prisma/prisma.service");
+const feature_decorator_1 = require("../platform/feature.decorator");
 exports.STAFF_MEMBERS = [
     'Suresh (Plumber)',
     'Ramesh (Electrician)',
@@ -153,6 +154,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ComplaintsController.prototype, "assign", null);
 ComplaintsController = __decorate([
+    (0, feature_decorator_1.RequiresFeature)('complaints'),
     (0, common_1.Controller)('complaints'),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], ComplaintsController);

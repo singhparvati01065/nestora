@@ -44,6 +44,12 @@ dependencies:
   image_picker: ^1.2.3
   # Render brand logos (payment methods) from bundled SVGs.
   flutter_svg: ^2.0.10
+  # Build PDF receipts for paid bills, save them straight to Downloads, and
+  # open the saved file.
+  pdf: ^3.11.0
+  file_saver: ^0.4.0
+  open_filex: ^4.7.0
+  firebase_messaging: ^16.5.0
 
 dev_dependencies:
   flutter_test:

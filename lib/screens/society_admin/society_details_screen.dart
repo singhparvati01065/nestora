@@ -28,6 +28,8 @@ class _SocietyDetailsScreenState extends State<SocietyDetailsScreen> {
 
   late final TextEditingController _nameController;
   late final TextEditingController _addressController;
+  late final TextEditingController _cityController;
+  late final TextEditingController _stateController;
 
   /// Set once a new logo has been uploaded, so the preview updates before save.
   String? _logoUrl;
@@ -43,6 +45,8 @@ class _SocietyDetailsScreenState extends State<SocietyDetailsScreen> {
     final s = _repo.society;
     _nameController = TextEditingController(text: s?.name ?? '');
     _addressController = TextEditingController(text: s?.address ?? '');
+    _cityController = TextEditingController(text: s?.city ?? '');
+    _stateController = TextEditingController(text: s?.state ?? '');
     _logoUrl = s?.logoUrl;
     // The preview initial follows what is typed.
     _nameController.addListener(() => setState(() {}));
@@ -52,6 +56,8 @@ class _SocietyDetailsScreenState extends State<SocietyDetailsScreen> {
   void dispose() {
     _nameController.dispose();
     _addressController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
     super.dispose();
   }
 
@@ -104,6 +110,8 @@ class _SocietyDetailsScreenState extends State<SocietyDetailsScreen> {
       await _repo.updateProfile(
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
+        city: _cityController.text.trim(),
+        state: _stateController.text.trim(),
         logoUrl: _logoUrl,
       );
       if (mounted) Navigator.of(context).pop(true);
@@ -115,8 +123,9 @@ class _SocietyDetailsScreenState extends State<SocietyDetailsScreen> {
   }
 
   void _snack(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -162,7 +171,9 @@ class _SocietyDetailsScreenState extends State<SocietyDetailsScreen> {
                                   width: 22,
                                   height: 22,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white),
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
@@ -178,8 +189,11 @@ class _SocietyDetailsScreenState extends State<SocietyDetailsScreen> {
                               onTap: _uploadingLogo ? null : _editPicture,
                               child: const Padding(
                                 padding: EdgeInsets.all(7),
-                                child: Icon(Icons.photo_camera_outlined,
-                                    size: 16, color: Colors.white),
+                                child: Icon(
+                                  Icons.photo_camera_outlined,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
@@ -189,9 +203,12 @@ class _SocietyDetailsScreenState extends State<SocietyDetailsScreen> {
                     const SizedBox(height: 10),
                     // Removing now lives in the camera badge's sheet, so the
                     // layout no longer jumps when a picture is added.
-                    Text('Edit picture',
-                        style: theme.textTheme.labelLarge
-                            ?.copyWith(fontWeight: FontWeight.w600)),
+                    Text(
+                      'Edit picture',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -219,6 +236,32 @@ class _SocietyDetailsScreenState extends State<SocietyDetailsScreen> {
                 validator: (v) =>
                     (v?.trim().isEmpty ?? true) ? 'Enter address' : null,
               ),
+              const SizedBox(height: 14),
+              // Optional here, unlike society setup: societies created before
+              // the app asked for these have neither, and their admin should
+              // not be blocked from saving a name or logo over it.
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _cityController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'City',
+                        prefixIcon: Icon(Icons.location_city_outlined),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _stateController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(labelText: 'State'),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: (_saving || _uploadingLogo) ? null : _save,
@@ -231,7 +274,9 @@ class _SocietyDetailsScreenState extends State<SocietyDetailsScreen> {
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.check),
                 label: const Text('Save changes'),

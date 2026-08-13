@@ -29,6 +29,16 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateSocietyProfileDto.prototype, "city", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateSocietyProfileDto.prototype, "state", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
     __metadata("design:type", Object)
 ], UpdateSocietyProfileDto.prototype, "logoUrl", void 0);
 //# sourceMappingURL=update-society-profile.dto.js.map

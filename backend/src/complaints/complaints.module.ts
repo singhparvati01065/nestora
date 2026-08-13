@@ -15,6 +15,7 @@ import { AuthUser, CurrentUser } from '../auth/decorators/current-user.decorator
 import { Roles } from '../auth/decorators/roles.decorator';
 import { resolveSocietyId } from '../common/society-scope';
 import { PrismaService } from '../prisma/prisma.service';
+import { RequiresFeature } from '../platform/feature.decorator';
 
 /// Canonical maintenance staff list (mirrors the client).
 export const STAFF_MEMBERS = [
@@ -39,6 +40,7 @@ class AssignDto {
   @IsOptional() @IsString() assignedTo?: string | null;
 }
 
+@RequiresFeature('complaints')
 @Controller('complaints')
 class ComplaintsController {
   constructor(private prisma: PrismaService) {}

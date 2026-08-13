@@ -13,12 +13,14 @@ import { AuthUser, CurrentUser } from '../auth/decorators/current-user.decorator
 import { Roles } from '../auth/decorators/roles.decorator';
 import { resolveSocietyId } from '../common/society-scope';
 import { PrismaService } from '../prisma/prisma.service';
+import { RequiresFeature } from '../platform/feature.decorator';
 
 class CreateDeliveryDto {
   @IsString() courier: string;
   @IsString() flatId: string;
 }
 
+@RequiresFeature('visitors')
 @Controller('deliveries')
 class DeliveriesController {
   constructor(private prisma: PrismaService) {}

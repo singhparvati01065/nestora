@@ -17,6 +17,16 @@ export class UpdateSocietyProfileDto {
   @MinLength(1)
   address?: string;
 
+  /// City / state are shown in the super-admin panel; an empty string clears
+  /// them back to null.
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
   /// A URL from POST /uploads. Send null to drop back to the initial.
   @IsOptional()
   @IsString()
