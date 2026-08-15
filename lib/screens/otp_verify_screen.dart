@@ -7,10 +7,7 @@ import '../api/firebase_auth_service.dart';
 import '../api/session.dart';
 import '../dev_flags.dart';
 import '../models/user_role.dart';
-import 'maintenance/maintenance_staff_home.dart';
-import 'resident/resident_home.dart';
-import 'security_guard/security_guard_home.dart';
-import 'society_admin/society_admin_home.dart';
+import 'home_for_role.dart';
 
 /// Collects the SMS code and completes sign-in.
 ///
@@ -158,7 +155,7 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
 
   void _goHome(AuthUser user) {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => _homeForRole(user.role)),
+      MaterialPageRoute(builder: (_) => homeForRole(user.role)),
       (route) => route.isFirst,
     );
   }
@@ -166,19 +163,6 @@ class _OtpVerifyScreenState extends State<OtpVerifyScreen> {
   void _snack(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Widget _homeForRole(UserRole role) {
-    switch (role) {
-      case UserRole.societyAdmin:
-        return const SocietyAdminHome();
-      case UserRole.securityGuard:
-        return const SecurityGuardHome();
-      case UserRole.resident:
-        return const ResidentHome();
-      case UserRole.maintenanceStaff:
-        return const MaintenanceStaffHome();
-    }
   }
 
   @override

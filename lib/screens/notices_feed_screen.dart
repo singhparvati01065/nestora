@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
 
-import '../../data/notices_repository.dart';
-import '../../models/notice.dart';
-import '../../models/user_role.dart';
-import '../loadable.dart';
-import '../notice_card.dart';
-import '../society_admin/admin_widgets.dart';
+import '../data/notices_repository.dart';
+import '../models/notice.dart';
+import 'loadable.dart';
+import 'notice_card.dart';
+import 'society_admin/admin_widgets.dart';
 
-/// Read-only notices feed for residents.
-class ResidentNoticesScreen extends StatefulWidget {
-  const ResidentNoticesScreen({super.key});
+/// Read-only notices feed, shown to everyone in the society.
+///
+/// A notice — water off, lift under repair, gate timings — concerns the guard
+/// and the maintenance staff as much as the residents, so all three roles open
+/// this same screen; only the accent changes.
+class NoticesFeedScreen extends StatefulWidget {
+  const NoticesFeedScreen({super.key, required this.accent});
+
+  final Color accent;
 
   @override
-  State<ResidentNoticesScreen> createState() => _ResidentNoticesScreenState();
+  State<NoticesFeedScreen> createState() => _NoticesFeedScreenState();
 }
 
-class _ResidentNoticesScreenState extends State<ResidentNoticesScreen>
-    with LoadableState<ResidentNoticesScreen> {
+class _NoticesFeedScreenState extends State<NoticesFeedScreen>
+    with LoadableState<NoticesFeedScreen> {
   final _repo = NoticesRepository.instance;
 
-  Color get _accent => UserRole.resident.color;
+  Color get _accent => widget.accent;
 
   @override
   Future<void> load() async {

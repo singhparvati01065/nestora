@@ -229,6 +229,42 @@ class _MoreTabState extends State<_MoreTab> {
     if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
+  /// An admin's account owns the society: deleting it would take every
+  /// resident's flat, bill and complaint with it. So the app explains that and
+  /// hands them to Support, rather than hiding the option and leaving them to
+  /// wonder — which is also what Play asks for.
+  Future<void> _deleteAccountInfo() async {
+    final toSupport = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: const Text(
+          'Your account is the society itself — its flats, residents, staff, '
+          'bills and complaints all hang off it. Deleting it here would delete '
+          'all of that for everyone, so we do it with you rather than on one '
+          'tap.\n\n'
+          'Raise a support ticket and we will confirm what should happen to '
+          'the society first — close it, or hand it to another admin.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _accent),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Contact support'),
+          ),
+        ],
+      ),
+    );
+    if (toSupport != true || !mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SupportScreen()),
+    );
+  }
+
   void _showAbout() {
     showAboutDialog(
       context: context,
@@ -336,7 +372,7 @@ class _MoreTabState extends State<_MoreTab> {
                   _MoreRow(
                     label: c.title,
                     subtitle: c.subtitle,
-                    icon: Icons.article_outlined,
+                    icon: c.icon,
                     accent: _accent,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
@@ -365,6 +401,14 @@ class _MoreTabState extends State<_MoreTab> {
                   accent: _accent,
                   danger: true,
                   onTap: _logout,
+                ),
+                _MoreRow(
+                  label: 'Delete account',
+                  subtitle: 'What happens to the society',
+                  icon: Icons.person_remove_outlined,
+                  accent: _accent,
+                  danger: true,
+                  onTap: _deleteAccountInfo,
                 ),
               ],
             ),
@@ -893,7 +937,7 @@ class _SocietyHeader extends StatelessWidget {
                     const SizedBox(width: 5),
                     Expanded(
                       child: Text(
-                        society.address,
+                        society.fullAddress,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.white.withValues(alpha: 0.85),
                           height: 1.35,

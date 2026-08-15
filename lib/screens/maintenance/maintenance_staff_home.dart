@@ -7,7 +7,9 @@ import '../../data/complaints_repository.dart';
 import '../../feature_flags.dart';
 import '../../models/complaint.dart';
 import '../../models/user_role.dart';
+import '../app_bar_identity.dart';
 import '../feature_off_screen.dart';
+import '../notices_feed_screen.dart';
 import '../complaint_card.dart';
 import '../society_admin/admin_widgets.dart';
 import '../user_profile_tab.dart';
@@ -74,6 +76,14 @@ class _MaintenanceStaffHomeState extends State<MaintenanceStaffHome> {
   /// Opens a task's detail sheet: description + status controls. For an
   /// unassigned task, an "Accept" button assigns it to this staff member.
   void _openTask(Complaint c, {required bool mine}) {
+    // Picking a chip only marks the choice; nothing is written until Save. A
+    // mis-tap used to close the sheet and resolve the task on the spot.
+    var pendingStatus = c.status;
+    var saving = false;
+    // A snackbar would surface behind the sheet, so a failed write is shown
+    // inline instead.
+    String? sheetError;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -124,14 +134,62 @@ class _MaintenanceStaffHomeState extends State<MaintenanceStaffHome> {
                         for (final s in ComplaintStatus.values)
                           ChoiceChip(
                             label: Text(s.label),
-                            selected: c.status == s,
+                            selected: pendingStatus == s,
                             selectedColor: s.color.withValues(alpha: 0.18),
-                            onSelected: (_) {
-                              Navigator.of(context).pop();
-                              _mutate(() => _repo.updateStatus(c, s));
-                            },
+                            onSelected: saving
+                                ? null
+                                : (_) =>
+                                      setModalState(() => pendingStatus = s),
                           ),
                       ],
+                    ),
+                    if (sheetError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        sheetError!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _accent,
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      // Nothing to write until the choice actually differs.
+                      onPressed: saving || pendingStatus == c.status
+                          ? null
+                          : () async {
+                              setModalState(() {
+                                saving = true;
+                                sheetError = null;
+                              });
+                              try {
+                                await _repo.updateStatus(c, pendingStatus);
+                                if (context.mounted) {
+                                  Navigator.of(context).pop();
+                                }
+                                if (mounted) setState(() {});
+                              } catch (e) {
+                                setModalState(() {
+                                  saving = false;
+                                  sheetError = ApiClient.messageFor(e);
+                                });
+                              }
+                            },
+                      icon: saving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.check),
+                      label: const Text('Save changes'),
                     ),
                   ] else
                     FilledButton.icon(
@@ -222,7 +280,27 @@ class _MaintenanceStaffHomeState extends State<MaintenanceStaffHome> {
           : AppBar(
               backgroundColor: _accent,
               foregroundColor: Colors.white,
-              title: Text(_staff),
+              // Same as the other role homes: identity on the left, no arrow.
+              automaticallyImplyLeading: false,
+              centerTitle: false,
+              titleSpacing: 16,
+              title: AppBarIdentity(
+                name: _staff,
+                photoUrl: Session.instance.user?.photoUrl,
+                subtitle: 'Maintenance',
+                onTap: () => setState(() => _index = profileIndex),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'Notices',
+                  icon: const Icon(Icons.campaign_outlined),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => NoticesFeedScreen(accent: _accent),
+                    ),
+                  ),
+                ),
+              ],
             ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,

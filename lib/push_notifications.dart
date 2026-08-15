@@ -19,6 +19,12 @@ class PushNotifications {
   final _messaging = FirebaseMessaging.instance;
   String? _token;
 
+  /// Bumped whenever a push arrives while the app is open, or the user taps a
+  /// notification to come back into it. Screens showing server state — bills
+  /// above all — listen and reload, so a resident's payment turns the society
+  /// admin's list green without them pulling to refresh.
+  final ValueNotifier<int> refreshSignal = ValueNotifier(0);
+
   /// Asks for permission, then hands the token to the backend. Never throws:
   /// push is a bonus, not a reason to fail a sign-in.
   Future<void> register() async {
@@ -35,6 +41,10 @@ class PushNotifications {
 
       // FCM rotates tokens on reinstall, restore and app updates.
       _messaging.onTokenRefresh.listen(_send);
+
+      // Anything the server pushes means something changed on the server.
+      FirebaseMessaging.onMessage.listen((_) => refreshSignal.value++);
+      FirebaseMessaging.onMessageOpenedApp.listen((_) => refreshSignal.value++);
     } catch (e) {
       debugPrint('Push registration skipped: $e');
     }

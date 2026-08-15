@@ -5,6 +5,7 @@ import '../../../data/bills_repository.dart';
 import '../../../data/society_repository.dart';
 import '../../../models/maintenance_bill.dart';
 import '../../../models/user_role.dart';
+import '../../../push_notifications.dart';
 import '../../bill_kind_tag.dart';
 import '../../loadable.dart';
 import '../admin_widgets.dart';
@@ -18,13 +19,35 @@ class BillsScreen extends StatefulWidget {
 }
 
 class _BillsScreenState extends State<BillsScreen>
-    with LoadableState<BillsScreen> {
+    with LoadableState<BillsScreen>, WidgetsBindingObserver {
   final _repo = BillsRepository.instance;
 
   Color get _accent => UserRole.societyAdmin.color;
 
   @override
   Future<void> load() => _repo.load();
+
+  // Residents pay from their own phones, so this list can go out of date while
+  // it sits open on the admin's screen. Two cheap signals bring it back in
+  // line: the "Payment received" push, and the app returning to the front.
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    PushNotifications.instance.refreshSignal.addListener(quietRefresh);
+  }
+
+  @override
+  void dispose() {
+    PushNotifications.instance.refreshSignal.removeListener(quietRefresh);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) quietRefresh();
+  }
 
   String _money(double amount) => '₹${amount.toStringAsFixed(0)}';
 

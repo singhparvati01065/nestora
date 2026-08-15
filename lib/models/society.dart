@@ -152,6 +152,22 @@ class Society {
     );
   }
 
+  /// "Sector 21, Gurugram 122001 · Gurugram, Haryana" — the free-form address
+  /// followed by city and state when they are filled in. A city or state that
+  /// the address already names is left out rather than repeated.
+  String get fullAddress {
+    final parts = <String>[address.trim()];
+    for (final extra in [city, state]) {
+      final value = extra?.trim() ?? '';
+      if (value.isEmpty) continue;
+      final alreadyThere = parts.any(
+        (p) => p.toLowerCase().contains(value.toLowerCase()),
+      );
+      if (!alreadyThere) parts.add(value);
+    }
+    return parts.where((p) => p.isNotEmpty).join(', ');
+  }
+
   int get numberOfTowers => towers.length;
 
   /// Every flat across all towers, in tower/floor order.

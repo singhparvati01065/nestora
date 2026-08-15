@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersService = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../prisma/prisma.service");
 let UsersService = class UsersService {
     constructor(prisma) {
@@ -30,6 +31,34 @@ let UsersService = class UsersService {
         });
         const { password: _pw, ...safe } = user;
         return safe;
+    }
+    async deleteMe(userId, role) {
+        if (role === client_1.Role.SOCIETY_ADMIN) {
+            throw new common_1.ForbiddenException('A society admin account cannot be deleted from the app, because the ' +
+                'whole society is attached to it. Raise a support ticket and we will ' +
+                'handle it with you.');
+        }
+        await this.prisma.$transaction(async (tx) => {
+            await tx.deviceToken.deleteMany({ where: { userId } });
+            await tx.user.update({
+                where: { id: userId },
+                data: {
+                    name: 'Deleted account',
+                    phone: `deleted-${userId}`,
+                    email: null,
+                    password: null,
+                    firebaseUid: null,
+                    photoUrl: null,
+                    address: null,
+                    salary: null,
+                    trades: [],
+                    flatId: null,
+                    archivedAt: new Date(),
+                    banned: true,
+                },
+            });
+        });
+        return { deleted: true };
     }
 };
 exports.UsersService = UsersService;

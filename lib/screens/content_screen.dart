@@ -106,7 +106,12 @@ class _ContentScreenState extends State<ContentScreen> {
       _title = (data['title'] as String?)?.trim().isNotEmpty == true
           ? data['title'] as String
           : widget.title;
-      _body = (data['body'] as String?) ?? '';
+      // The panel's textarea posts CRLF. A stray \r is not a line terminator
+      // to `.` in a regex, so it silently broke question and heading detection
+      // and every page fell back to plain prose.
+      _body = ((data['body'] as String?) ?? '')
+          .replaceAll('\r\n', '\n')
+          .replaceAll('\r', '\n');
     } catch (_) {
       // leave empty; UI shows a fallback
     }
@@ -311,18 +316,38 @@ class _Block extends StatelessWidget {
 
 /// The content pages the app links to, in display order. The subtitle says
 /// what is behind the row, the way every other row in the profile does.
-const List<({String key, String title, String subtitle})> kContentPages = [
-  (key: 'faq', title: 'FAQ', subtitle: 'Common questions, answered'),
+/// Every page carries its own icon: five rows of the same document glyph told
+/// the reader nothing about which row was which.
+const List<({String key, String title, String subtitle, IconData icon})>
+kContentPages = [
+  (
+    key: 'faq',
+    title: 'FAQ',
+    subtitle: 'Common questions, answered',
+    icon: Icons.help_outline,
+  ),
   (
     key: 'terms',
     title: 'Terms & Conditions',
     subtitle: 'The rules for using Nestora',
+    icon: Icons.gavel_outlined,
   ),
   (
     key: 'privacy',
     title: 'Privacy Policy',
     subtitle: 'What we collect and why',
+    icon: Icons.lock_outline,
   ),
-  (key: 'about', title: 'About Us', subtitle: 'What Nestora is and who it is for'),
-  (key: 'contact', title: 'Contact Us', subtitle: 'How to reach us'),
+  (
+    key: 'about',
+    title: 'About Us',
+    subtitle: 'What Nestora is and who it is for',
+    icon: Icons.business_outlined,
+  ),
+  (
+    key: 'contact',
+    title: 'Contact Us',
+    subtitle: 'How to reach us',
+    icon: Icons.mail_outline,
+  ),
 ];

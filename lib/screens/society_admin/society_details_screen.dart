@@ -226,7 +226,10 @@ class _SocietyDetailsScreenState extends State<SocietyDetailsScreen> {
               const SizedBox(height: 14),
               TextFormField(
                 controller: _addressController,
-                minLines: 2,
+                // Starts one line tall like every other field and grows with
+                // the text, instead of opening as a tall empty box with the
+                // first line stranded at its top.
+                minLines: 1,
                 maxLines: 4,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
@@ -246,10 +249,8 @@ class _SocietyDetailsScreenState extends State<SocietyDetailsScreen> {
                     child: TextFormField(
                       controller: _cityController,
                       textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(
-                        labelText: 'City',
-                        prefixIcon: Icon(Icons.location_city_outlined),
-                      ),
+                      // No icon, to match State beside it.
+                      decoration: const InputDecoration(labelText: 'City'),
                     ),
                   ),
                   const SizedBox(width: 12),

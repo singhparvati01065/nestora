@@ -9,6 +9,7 @@ import 'content_screen.dart';
 import '../api/auth_api.dart';
 import '../api/session.dart';
 import '../data/society_repository.dart';
+import '../models/society.dart';
 import '../models/user_role.dart';
 import 'avatar_image.dart';
 import 'picture_options_sheet.dart';
@@ -118,6 +119,53 @@ class _UserProfileTabState extends State<UserProfileTab> {
     if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
+  /// Closes the account for good. Play requires this to be reachable from
+  /// inside the app; the wording spells out what survives (the society's own
+  /// records) so nobody expects their flat's bill history to vanish too.
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: const Text(
+          'Your name, photo and number are removed and you will be signed out '
+          'everywhere. Your society keeps its own records — bills, complaints '
+          'and gate entries — without your details on them.\n\n'
+          'This cannot be undone. To use the app again, your society admin has '
+          'to add your number back.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete account'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      // Same order as signing out: the device token goes while it is still
+      // usable, then the account, then the session.
+      await PushNotifications.instance.unregister();
+      await AuthApi.instance.deleteAccount();
+      await Session.instance.clear();
+      if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _snack(ApiClient.messageFor(e));
+    }
+  }
+
   void _showAbout() {
     showAboutDialog(
       context: context,
@@ -174,13 +222,22 @@ class _UserProfileTabState extends State<UserProfileTab> {
                   ),
                   const SizedBox(height: 26),
                 ],
+                // Residents, guards and staff cannot edit the society, but they
+                // should be able to see where it is — the address only lived on
+                // the society admin's screens until now.
+                if (society != null) ...[
+                  const _SectionLabel('Your society'),
+                  const SizedBox(height: 10),
+                  _SocietyCard(society: society, accent: _accent),
+                  const SizedBox(height: 26),
+                ],
                 const _SectionLabel('Help & Legal'),
                 const SizedBox(height: 10),
                 for (final c in kContentPages)
                   _ProfileRow(
                     label: c.title,
                     subtitle: c.subtitle,
-                    icon: Icons.article_outlined,
+                    icon: c.icon,
                     accent: _accent,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
@@ -218,6 +275,14 @@ class _UserProfileTabState extends State<UserProfileTab> {
                   accent: _accent,
                   danger: true,
                   onTap: _logout,
+                ),
+                _ProfileRow(
+                  label: 'Delete account',
+                  subtitle: 'Remove your details for good',
+                  icon: Icons.person_remove_outlined,
+                  accent: _accent,
+                  danger: true,
+                  onTap: _busy ? null : _deleteAccount,
                 ),
               ],
             ),
@@ -278,6 +343,76 @@ class _TradesCard extends StatelessWidget {
                   ),
               ],
             ),
+    );
+  }
+}
+
+/// Where the society is: its logo, name and full address. Read-only — only the
+/// society admin can change any of it, from Profile → Society details.
+class _SocietyCard extends StatelessWidget {
+  const _SocietyCard({required this.society, required this.accent});
+
+  final Society society;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final address = society.fullAddress.trim();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AvatarImage(
+            path: society.logoUrl,
+            name: society.name,
+            size: 44,
+            background: accent.withValues(alpha: 0.10),
+            foreground: accent,
+            fallbackIcon: Icons.apartment_rounded,
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  society.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 15,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        address.isEmpty ? 'No address added yet' : address,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

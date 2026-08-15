@@ -5,6 +5,7 @@ import '../../../data/complaints_repository.dart';
 import '../../../data/society_repository.dart';
 import '../../../models/complaint.dart';
 import '../../../models/user_role.dart';
+import '../../../push_notifications.dart';
 import '../../loadable.dart';
 import '../../complaint_card.dart';
 import '../admin_widgets.dart';
@@ -17,8 +18,30 @@ class ComplaintsScreen extends StatefulWidget {
 }
 
 class _ComplaintsScreenState extends State<ComplaintsScreen>
-    with LoadableState<ComplaintsScreen> {
+    with LoadableState<ComplaintsScreen>, WidgetsBindingObserver {
   final _repo = ComplaintsRepository.instance;
+
+  // Staff resolve tasks and residents raise them while this list sits open, so
+  // it reloads on a push and when the app comes back to the front — same rule
+  // as the bills screen.
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    PushNotifications.instance.refreshSignal.addListener(quietRefresh);
+  }
+
+  @override
+  void dispose() {
+    PushNotifications.instance.refreshSignal.removeListener(quietRefresh);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) quietRefresh();
+  }
 
   /// null = All, otherwise the selected status filter.
   ComplaintStatus? _filter;

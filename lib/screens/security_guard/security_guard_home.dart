@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../api/api_client.dart';
+import '../../api/session.dart';
 import '../../data/deliveries_repository.dart';
 import '../../data/pre_approved_repository.dart';
 import '../../data/society_repository.dart';
@@ -9,7 +10,9 @@ import '../../feature_flags.dart';
 import '../../models/pre_approved_visitor.dart';
 import '../../models/society.dart';
 import '../../models/user_role.dart';
+import '../app_bar_identity.dart';
 import '../feature_off_screen.dart';
+import '../notices_feed_screen.dart';
 import '../society_admin/admin_widgets.dart';
 import '../user_profile_tab.dart';
 
@@ -389,9 +392,32 @@ class _SecurityGuardHomeState extends State<SecurityGuardHome> {
       appBar: onProfile
           ? null
           : AppBar(
-              title: const Text('Security · Main Gate'),
               backgroundColor: _accent,
               foregroundColor: Colors.white,
+              // Home for a guard: no back arrow, and the theme's centred title
+              // would push the identity block off the left edge.
+              automaticallyImplyLeading: false,
+              centerTitle: false,
+              titleSpacing: 16,
+              title: AppBarIdentity(
+                name: Session.instance.user?.name ?? 'Security Guard',
+                photoUrl: Session.instance.user?.photoUrl,
+                subtitle: 'Security · Main Gate',
+                onTap: () => setState(() => _index = profileIndex),
+              ),
+              actions: [
+                // Gate timings, water cuts, visitor rules — society notices
+                // are the guard's business too, not only the residents'.
+                IconButton(
+                  tooltip: 'Notices',
+                  icon: const Icon(Icons.campaign_outlined),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => NoticesFeedScreen(accent: _accent),
+                    ),
+                  ),
+                ),
+              ],
             ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,

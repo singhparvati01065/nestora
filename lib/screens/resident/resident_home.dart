@@ -7,14 +7,16 @@ import '../../data/notices_repository.dart';
 import '../../data/society_repository.dart';
 import '../../feature_flags.dart';
 import '../../models/user_role.dart';
+import '../app_bar_identity.dart';
 import '../loadable.dart';
+import '../notices_feed_screen.dart';
 import '../user_profile_tab.dart';
 import 'amenities_screen.dart';
 import 'my_bills_history_screen.dart';
 import 'my_bills_screen.dart';
 import 'my_complaints_screen.dart';
 import 'pre_approve_screen.dart';
-import 'resident_notices_screen.dart';
+
 
 /// Home for a Resident, scoped to their own flat (from the logged-in account).
 class ResidentHome extends StatefulWidget {
@@ -34,6 +36,9 @@ class _ResidentHomeState extends State<ResidentHome>
   /// Bills are a platform feature the super admin can switch off; when it is
   /// off the Dues and History tabs are not built at all.
   bool get _payments => FeatureFlags.instance.payments;
+
+  /// Last tab, wherever Dues and History leave it.
+  int get _profileIndex => _payments ? 3 : 1;
 
   @override
   Future<void> load() async {
@@ -75,13 +80,26 @@ class _ResidentHomeState extends State<ResidentHome>
           ? AppBar(
               backgroundColor: _accent,
               foregroundColor: Colors.white,
-              title: Text(flat != null ? 'Flat $flat' : 'Resident'),
+              // This is the home of the whole app for a resident — there is
+              // nothing behind it to go back to, so the arrow only took space
+              // the photo and name use better.
+              automaticallyImplyLeading: false,
+              // The app-wide bar centres its title; an identity block belongs
+              // against the left edge.
+              centerTitle: false,
+              titleSpacing: 16,
+              title: AppBarIdentity(
+                name: Session.instance.user?.name ?? 'Resident',
+                photoUrl: Session.instance.user?.photoUrl,
+                subtitle: flat == null ? null : 'Flat $flat',
+                onTap: () => setState(() => _index = _profileIndex),
+              ),
               actions: [
                 if (flat != null)
                   IconButton(
                     tooltip: 'Notices',
                     icon: const Icon(Icons.campaign_outlined),
-                    onPressed: () => _openThen(const ResidentNoticesScreen()),
+                    onPressed: () => _openThen(NoticesFeedScreen(accent: _accent)),
                   ),
               ],
             )

@@ -52,6 +52,8 @@ dependencies:
   firebase_messaging: ^16.5.0
 
 dev_dependencies:
+  # Generates the launcher icons for every density from assets/icon.
+  flutter_launcher_icons: ^0.14.1
   flutter_test:
     sdk: flutter
 
@@ -101,3 +103,13 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# App icon. Regenerate after changing assets/icon:
+#   dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "#6C4AB6"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
+  remove_alpha_ios: true

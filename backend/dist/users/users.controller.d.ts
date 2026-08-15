@@ -6,22 +6,25 @@ export declare class UsersController {
     constructor(users: UsersService);
     updateMe(user: AuthUser, dto: UpdateMeDto): Promise<{
         id: string;
-        updatedAt: Date;
-        name: string;
-        societyId: string | null;
-        flatId: string | null;
-        createdAt: Date;
         phone: string;
-        role: import(".prisma/client").$Enums.Role;
-        staffLabel: string | null;
-        trades: string[];
-        address: string | null;
         email: string | null;
         firebaseUid: string | null;
+        name: string;
         photoUrl: string | null;
+        role: import(".prisma/client").$Enums.Role;
+        societyId: string | null;
+        flatId: string | null;
+        staffLabel: string | null;
         banned: boolean;
+        address: string | null;
         joinedAt: Date | null;
         salary: import("@prisma/client/runtime/library").Decimal | null;
         archivedAt: Date | null;
+        trades: string[];
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
+    deleteMe(user: AuthUser): Promise<{
+        deleted: boolean;
     }>;
 }

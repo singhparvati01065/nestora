@@ -130,6 +130,12 @@ class AuthApi {
     return user;
   }
 
+  /// Closes the signed-in account for good. The backend refuses this for a
+  /// society admin, whose account the whole society hangs off.
+  Future<void> deleteAccount() async {
+    await _api.delete('/users/me');
+  }
+
   Future<AuthUser> _store(dynamic data) async {
     final user = AuthUser.fromJson(data['user'] as Map<String, dynamic>);
     await Session.instance.save(data['accessToken'] as String, user);

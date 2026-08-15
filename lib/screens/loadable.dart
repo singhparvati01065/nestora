@@ -29,6 +29,19 @@ mixin LoadableState<T extends StatefulWidget> on State<T> {
     if (mounted) setState(() => loading = false);
   }
 
+  /// Reloads without showing the spinner, for updates the user did not ask
+  /// for — a push arriving, the app coming back to the foreground. A spinner
+  /// over data that is already on screen reads as a glitch, and a failure here
+  /// is not worth an error page: the stale data stays until the next attempt.
+  Future<void> quietRefresh() async {
+    try {
+      await load();
+    } catch (_) {
+      return;
+    }
+    if (mounted) setState(() {});
+  }
+
   /// Runs a mutation, shows any error as a snackbar, and refreshes the UI.
   Future<void> runMutation(Future<void> Function() action) async {
     try {

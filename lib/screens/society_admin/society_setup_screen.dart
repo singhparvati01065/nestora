@@ -377,7 +377,8 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _addressController,
-                  minLines: 2,
+                  // Grows from one line, like Society details.
+                  minLines: 1,
                   maxLines: 3,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
@@ -395,10 +396,10 @@ class _SocietySetupScreenState extends State<SocietySetupScreen> {
                       child: TextFormField(
                         controller: _cityController,
                         textCapitalization: TextCapitalization.words,
+                        // No icon, to match State beside it.
                         decoration: const InputDecoration(
                           labelText: 'City',
                           hintText: 'e.g. Pune',
-                          prefixIcon: Icon(Icons.location_city_outlined),
                         ),
                         validator: (v) =>
                             (v?.trim().isEmpty ?? true) ? 'Enter city' : null,
