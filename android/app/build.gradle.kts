@@ -32,7 +32,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.nestora.nestora"
+        applicationId = "com.nestora.society"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

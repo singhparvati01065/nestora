@@ -51,7 +51,9 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyDtLlD8rJ4fYWzdIjnqI_0YC8vbpYyAlYY',
-    appId: '1:552001166456:android:e47d7db391dafc1916618d',
+    // The Android app registered for com.nestora.society. The old
+    // com.nestora.nestora app is still in the project, unused.
+    appId: '1:552001166456:android:4a9ec7a25e9b695f16618d',
     messagingSenderId: '552001166456',
     projectId: 'nestora-app-2026',
     storageBucket: 'nestora-app-2026.firebasestorage.app',
