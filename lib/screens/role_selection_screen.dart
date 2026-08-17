@@ -39,29 +39,24 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 48),
+              // The Nestora mark itself, on the white tile it is drawn for —
+              // the same image the launcher icon uses.
               Container(
-                width: 96,
-                height: 96,
+                width: 112,
+                height: 112,
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      theme.colorScheme.primary,
-                      theme.colorScheme.primary.withValues(alpha: 0.7),
-                    ],
-                  ),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.35),
-                      blurRadius: 24,
-                      offset: const Offset(0, 12),
+                      color: Colors.black.withValues(alpha: 0.10),
+                      blurRadius: 22,
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
-                child: const Icon(Icons.apartment_rounded,
-                    color: Colors.white, size: 52),
+                child: Image.asset('assets/brand/nestora_mark.png'),
               ),
               const SizedBox(height: 24),
               Text('Nestora',

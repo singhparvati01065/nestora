@@ -54,6 +54,8 @@ dependencies:
 dev_dependencies:
   # Generates the launcher icons for every density from assets/icon.
   flutter_launcher_icons: ^0.14.1
+  # Native splash: the mark on white, with the name under it.
+  flutter_native_splash: ^2.4.1
   flutter_test:
     sdk: flutter
 
@@ -77,6 +79,7 @@ flutter:
 
   assets:
     - assets/logos/
+    - assets/brand/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -113,3 +116,16 @@ flutter_launcher_icons:
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icon/icon_foreground.png"
   remove_alpha_ios: true
+
+# Splash screen. Regenerate after changing the images:
+#   dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/brand/nestora_mark.png
+  branding: assets/brand/splash_branding.png
+  branding_mode: bottom
+  android_12:
+    # Padded copy: Android 12 crops the splash icon to a circle.
+    image: assets/brand/splash_mark.png
+    icon_background_color: "#FFFFFF"
+    branding: assets/brand/splash_branding.png
