@@ -1,5 +1,4 @@
 import 'dart:io';
-import '../../push_notifications.dart';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -14,6 +13,7 @@ import '../../models/user_role.dart';
 import '../avatar_image.dart';
 import '../loadable.dart';
 import '../picture_options_sheet.dart';
+import '../sign_out.dart';
 import 'bills/bills_screen.dart';
 import 'complaints/complaints_screen.dart';
 import '../content_screen.dart';
@@ -223,10 +223,7 @@ class _MoreTabState extends State<_MoreTab> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    // Before the session goes: unregistering needs the token it carries.
-    await PushNotifications.instance.unregister();
-    await Session.instance.clear();
-    if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+    await signOutTo(context);
   }
 
   /// An admin's account owns the society: deleting it would take every

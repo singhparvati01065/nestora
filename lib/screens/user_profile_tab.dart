@@ -13,6 +13,7 @@ import '../models/society.dart';
 import '../models/user_role.dart';
 import 'avatar_image.dart';
 import 'picture_options_sheet.dart';
+import 'sign_out.dart';
 import 'user_profile_edit_screen.dart';
 
 /// The account screen for a person (guard, resident, maintenance).
@@ -113,10 +114,7 @@ class _UserProfileTabState extends State<UserProfileTab> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    // Before the session goes: unregistering needs the token it carries.
-    await PushNotifications.instance.unregister();
-    await Session.instance.clear();
-    if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+    await signOutTo(context);
   }
 
   /// Closes the account for good. Play requires this to be reachable from
@@ -158,7 +156,7 @@ class _UserProfileTabState extends State<UserProfileTab> {
       await PushNotifications.instance.unregister();
       await AuthApi.instance.deleteAccount();
       await Session.instance.clear();
-      if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+      if (mounted) await backToRolePicker(context);
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);

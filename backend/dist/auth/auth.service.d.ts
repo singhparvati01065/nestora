@@ -33,13 +33,13 @@ export declare class AuthService {
     me(userId: string): Promise<{
         society: {
             id: string;
-            name: string;
-            address: string;
-            createdAt: Date;
             updatedAt: Date;
+            name: string;
+            logoUrl: string | null;
+            createdAt: Date;
+            address: string;
             city: string | null;
             state: string | null;
-            logoUrl: string | null;
             hasTowers: boolean;
             monthlyMaintenance: import("@prisma/client/runtime/library").Decimal | null;
             maintenanceSince: Date | null;
@@ -58,23 +58,23 @@ export declare class AuthService {
             billingSince: Date | null;
         } | null;
         id: string;
-        phone: string;
-        email: string | null;
-        firebaseUid: string | null;
+        updatedAt: Date;
         name: string;
-        photoUrl: string | null;
-        role: import(".prisma/client").$Enums.Role;
         societyId: string | null;
         flatId: string | null;
+        createdAt: Date;
+        phone: string;
+        role: import(".prisma/client").$Enums.Role;
         staffLabel: string | null;
-        banned: boolean;
+        trades: string[];
         address: string | null;
+        email: string | null;
+        firebaseUid: string | null;
+        photoUrl: string | null;
+        banned: boolean;
         joinedAt: Date | null;
         salary: import("@prisma/client/runtime/library").Decimal | null;
         archivedAt: Date | null;
-        trades: string[];
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     refresh(userId: string): Promise<{
         accessToken: string;

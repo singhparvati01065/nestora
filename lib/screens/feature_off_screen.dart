@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import '../push_notifications.dart';
+import 'sign_out.dart';
 
-import '../api/session.dart';
 
 /// Shown in place of a whole role's home when the one module that role exists
 /// for — the gate for a guard, complaints for maintenance staff — has been
@@ -26,14 +25,7 @@ class FeatureOffScreen extends StatelessWidget {
 
   final Color accent;
 
-  Future<void> _logout(BuildContext context) async {
-    // Before the session goes: unregistering needs the token it carries.
-    await PushNotifications.instance.unregister();
-    await Session.instance.clear();
-    if (context.mounted) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    }
-  }
+  Future<void> _logout(BuildContext context) => signOutTo(context);
 
   @override
   Widget build(BuildContext context) {
